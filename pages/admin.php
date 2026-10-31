@@ -615,7 +615,7 @@ unset($_SESSION['admin_flash']);
             color: #ffffff;
             border-right: 1px solid rgba(255, 255, 255, 0.08);
             z-index: 50;
-            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s ease;
             overflow: hidden !important;
             user-select: none;
         }
@@ -627,6 +627,34 @@ unset($_SESSION['admin_flash']);
             align-items: center;
             gap: 14px;
             flex-shrink: 0;
+            position: relative;
+        }
+
+        .btn-sidebar-pin {
+            margin-left: auto;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #a7f3d0;
+            display: grid;
+            place-items: center;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-sidebar-pin:hover {
+            background: rgba(255, 255, 255, 0.22);
+            color: #ffffff;
+            transform: scale(1.05);
+        }
+
+        body:not(.sidebar-autohide) .btn-sidebar-pin {
+            color: #34d399;
+            background: rgba(52, 211, 153, 0.18);
+            border-color: rgba(52, 211, 153, 0.35);
         }
 
         .brand-icon {
@@ -919,6 +947,7 @@ unset($_SESSION['admin_flash']);
             min-width: 0;
             max-width: 100%;
             overflow-x: hidden;
+            transition: width 0.28s cubic-bezier(0.16, 1, 0.3, 1), margin-left 0.28s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         /* Top Navigation Header */
@@ -1806,18 +1835,39 @@ unset($_SESSION['admin_flash']);
             background: #f8fafc;
         }
 
-        /* Mobile Hamburger */
-        .mobile-nav-toggle {
-            display: none;
+        /* Unified Navigation / Full View Toggle Button */
+        .mobile-nav-toggle,
+        .sidebar-toggle-btn {
+            display: grid;
             width: 38px;
             height: 38px;
-            border-radius: 8px;
-            background: #f1f5f9;
+            border-radius: 10px;
+            background: #ffffff;
             border: 1px solid var(--panel-border);
             color: var(--text-primary);
             cursor: pointer;
             place-items: center;
-            font-size: 1.1rem;
+            font-size: 1.15rem;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            user-select: none;
+            outline: none;
+        }
+
+        .mobile-nav-toggle:hover,
+        .sidebar-toggle-btn:hover {
+            background: var(--panel-hover);
+            border-color: #cbd5e1;
+            color: var(--brand);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .mobile-nav-toggle.active,
+        .sidebar-toggle-btn.active {
+            background: #ecfdf5;
+            color: #059669;
+            border-color: rgba(16, 185, 129, 0.4);
         }
 
         /* Mobile Overlay Backdrop */
@@ -1840,6 +1890,69 @@ unset($_SESSION['admin_flash']);
             pointer-events: auto;
         }
 
+        /* ── AUTO-HIDE & FULL VIEW MODE (Desktop & Tablets) ─────────────── */
+        body.sidebar-autohide .sidebar {
+            transform: translateX(-100%);
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.55);
+        }
+
+        body.sidebar-autohide .sidebar.hover-open,
+        body.sidebar-autohide .sidebar:hover,
+        body.sidebar-autohide .sidebar.open {
+            transform: translateX(0);
+        }
+
+        body.sidebar-autohide .main-canvas {
+            width: 100% !important;
+            margin-left: 0 !important;
+        }
+
+        /* Left Edge Hover Detection Zone */
+        .sidebar-hover-zone {
+            display: none;
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 18px;
+            z-index: 48;
+        }
+        body.sidebar-autohide .sidebar-hover-zone {
+            display: block;
+        }
+
+        /* Floating Edge Trigger Tab */
+        .sidebar-edge-trigger {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 0;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 52px;
+            background: linear-gradient(180deg, #065f46, #022c22);
+            color: #34d399;
+            border-radius: 0 10px 10px 0;
+            box-shadow: 2px 0 12px rgba(0, 0, 0, 0.3);
+            z-index: 49;
+            cursor: pointer;
+            place-items: center;
+            font-size: 0.85rem;
+            border: 1px solid rgba(52, 211, 153, 0.3);
+            border-left: none;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            user-select: none;
+        }
+        .sidebar-edge-trigger:hover {
+            width: 26px;
+            background: #059669;
+            color: #ffffff;
+            box-shadow: 4px 0 16px rgba(5, 150, 105, 0.4);
+        }
+        body.sidebar-autohide .sidebar-edge-trigger {
+            display: grid;
+        }
+
         /* Baseline Mobile Overlay and Canvas Setup */
         @media (max-width: 1024px) {
             .sidebar {
@@ -1850,11 +1963,12 @@ unset($_SESSION['admin_flash']);
                 box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
             }
             .main-canvas {
-                width: 100%;
-                margin-left: 0;
+                width: 100% !important;
+                margin-left: 0 !important;
             }
-            .mobile-nav-toggle {
-                display: grid;
+            .sidebar-hover-zone,
+            .sidebar-edge-trigger {
+                display: none !important;
             }
             .two-col-layout {
                 grid-template-columns: 1fr;
@@ -2272,6 +2386,12 @@ unset($_SESSION['admin_flash']);
 </head>
 <body>
 
+    <!-- Auto-hide Edge Trigger Strip and Zone -->
+    <div class="sidebar-hover-zone" id="sidebarHoverZone" aria-hidden="true"></div>
+    <div class="sidebar-edge-trigger" id="sidebarEdgeTrigger" title="Hover or click for navigation">
+        <i class="bi bi-chevron-right"></i>
+    </div>
+
     <!-- Mobile Drawer Backdrop Overlay -->
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
@@ -2288,6 +2408,9 @@ unset($_SESSION['admin_flash']);
                     <span>1st District</span> • Admin Console
                 </div>
             </div>
+            <button type="button" class="btn-sidebar-pin" id="sidebarPinBtn" title="Pin / Unpin Sidebar">
+                <i class="bi bi-pin-angle"></i>
+            </button>
         </div>
 
         <nav class="sidebar-nav" aria-label="Admin Navigation">
@@ -2387,8 +2510,8 @@ unset($_SESSION['admin_flash']);
         <!-- Sticky Top Navigation -->
         <header class="topbar-header">
             <div class="topbar-title-group">
-                <button type="button" class="mobile-nav-toggle" id="mobileToggle" aria-label="Toggle navigation">
-                    <i class="bi bi-list"></i>
+                <button type="button" class="sidebar-toggle-btn" id="sidebarToggle" aria-label="Toggle navigation" title="Toggle Navigation (Auto-Hide / Full View)">
+                    <i class="bi bi-layout-sidebar-inset"></i>
                 </button>
                 <div>
                     <h2 id="topbarPageTitle">District Command &amp; Surveillance</h2>
@@ -3346,7 +3469,7 @@ unset($_SESSION['admin_flash']);
                 history.replaceState(null, '', '#' + sectionId);
             }
 
-            sidebar?.classList.remove('open');
+            sidebar?.classList.remove('open', 'hover-open');
             sidebarOverlay?.classList.remove('open');
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
@@ -3394,15 +3517,108 @@ unset($_SESSION['admin_flash']);
             }
         });
 
-        // Mobile Sidebar Toggles
-        document.getElementById('mobileToggle')?.addEventListener('click', () => {
-            const isOpen = sidebar?.classList.toggle('open');
-            sidebarOverlay?.classList.toggle('open', !!isOpen);
+        // ── AUTO-HIDE / FULL VIEW ENGINE ─────────────────────────────────────
+        const hoverZone = document.getElementById('sidebarHoverZone');
+        const edgeTrigger = document.getElementById('sidebarEdgeTrigger');
+        const pinBtn = document.getElementById('sidebarPinBtn');
+        const sidebarToggle = document.getElementById('sidebarToggle') || document.getElementById('mobileToggle');
+
+        // Check stored preference - default to TRUE (autohide for full view)
+        let isAutoHide = localStorage.getItem('agritrace_sidebar_autohide') !== 'false';
+
+        function applyAutoHideMode(enabled) {
+            isAutoHide = enabled;
+            localStorage.setItem('agritrace_sidebar_autohide', enabled ? 'true' : 'false');
+            if (enabled) {
+                document.body.classList.add('sidebar-autohide');
+                sidebarToggle?.classList.add('active');
+                if (pinBtn) pinBtn.innerHTML = '<i class="bi bi-pin-angle" title="Click to Pin Sidebar Open"></i>';
+            } else {
+                document.body.classList.remove('sidebar-autohide');
+                sidebar?.classList.remove('hover-open');
+                sidebarToggle?.classList.remove('active');
+                if (pinBtn) pinBtn.innerHTML = '<i class="bi bi-pin-fill" title="Click to Auto-Hide for Full View"></i>';
+            }
+            setTimeout(() => {
+                window.dispatchEvent(new Event('resize'));
+                const mapFrame = document.querySelector('.map-frame-view');
+                if (mapFrame && mapFrame.contentWindow) {
+                    try { mapFrame.contentWindow.postMessage({ action: 'resize' }, '*'); } catch (e) {}
+                }
+            }, 300);
+        }
+
+        // Initialize Auto-Hide State
+        applyAutoHideMode(isAutoHide);
+
+        // Pin Button in Sidebar Header
+        pinBtn?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            applyAutoHideMode(!isAutoHide);
         });
 
+        // Topbar Sidebar / Full View Toggle Button
+        sidebarToggle?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (window.innerWidth <= 1024) {
+                const isOpen = sidebar?.classList.toggle('open');
+                sidebarOverlay?.classList.toggle('open', !!isOpen);
+            } else {
+                if (sidebar?.classList.contains('hover-open') || sidebar?.classList.contains('open')) {
+                    sidebar.classList.remove('hover-open', 'open');
+                } else {
+                    sidebar.classList.add('hover-open');
+                }
+            }
+        });
+
+        // Edge Hover Trigger
+        let hoverTimeout = null;
+        function openSidebarHover() {
+            if (!document.body.classList.contains('sidebar-autohide') || window.innerWidth <= 1024) return;
+            clearTimeout(hoverTimeout);
+            sidebar?.classList.add('hover-open');
+        }
+        function closeSidebarHover() {
+            if (!document.body.classList.contains('sidebar-autohide') || window.innerWidth <= 1024) return;
+            clearTimeout(hoverTimeout);
+            hoverTimeout = setTimeout(() => {
+                sidebar?.classList.remove('hover-open');
+            }, 300);
+        }
+
+        hoverZone?.addEventListener('mouseenter', openSidebarHover);
+        edgeTrigger?.addEventListener('mouseenter', openSidebarHover);
+        edgeTrigger?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sidebar?.classList.toggle('hover-open');
+        });
+
+        sidebar?.addEventListener('mouseenter', () => {
+            clearTimeout(hoverTimeout);
+        });
+        sidebar?.addEventListener('mouseleave', closeSidebarHover);
+
+        // Screen edge cursor detection fallback
+        document.addEventListener('mousemove', (e) => {
+            if (!document.body.classList.contains('sidebar-autohide') || window.innerWidth <= 1024) return;
+            if (e.clientX <= 14) {
+                openSidebarHover();
+            }
+        });
+
+        // Overlay click closes on both mobile and desktop
         sidebarOverlay?.addEventListener('click', () => {
-            sidebar?.classList.remove('open');
+            sidebar?.classList.remove('open', 'hover-open');
             sidebarOverlay?.classList.remove('open');
+        });
+
+        // Keyboard Shortcut: [ or Ctrl+B to toggle full view
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey && e.key.toLowerCase() === 'b') || (e.key === '[' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName))) {
+                e.preventDefault();
+                applyAutoHideMode(!isAutoHide);
+            }
         });
 
         // Hash Navigation & PopState
