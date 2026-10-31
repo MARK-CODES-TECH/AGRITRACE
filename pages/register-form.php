@@ -951,7 +951,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div class="terms">
                             <input type="checkbox" id="terms" name="terms" required>
                             <label for="terms">
-                                I agree to the <a href="#">Terms and Conditions</a>
+                                I agree to the <a href="javascript:void(0)" onclick="openTermsModal()">Terms and Conditions</a>
                             </label>
                         </div>
 
@@ -977,7 +977,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </section>
     </main>
 
+    <!-- Terms and Conditions Modal -->
+    <div id="termsModal" class="terms-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px;">
+        <div style="background:#fff;border-radius:18px;max-width:540px;width:100%;max-height:85vh;overflow-y:auto;padding:28px;box-shadow:0 20px 45px rgba(0,0,0,0.3);font-family:inherit;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <h3 style="margin:0;font-size:1.3rem;color:#123f33;display:flex;align-items:center;gap:8px;"><i class="bi bi-shield-check"></i> Terms &amp; Conditions</h3>
+                <button type="button" onclick="closeTermsModal()" style="border:none;background:#f1f5f9;width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:1.1rem;display:grid;place-items:center;" aria-label="Close">&times;</button>
+            </div>
+            <div style="font-size:0.88rem;color:#475569;line-height:1.6;margin-bottom:20px;">
+                <p>By registering an account on <strong>AgriTrace+</strong>, you agree to comply with Philippine Biosecurity and Livestock Registration standards under the Department of Agriculture (DA) and the Bureau of Animal Industry (BAI).</p>
+                <p style="margin-top:10px;"><strong>1. Truthful Information:</strong> You certify that all farm, livestock, and personal identification data provided during registration are accurate and up-to-date.</p>
+                <p style="margin-top:10px;"><strong>2. Incident &amp; Disease Reporting:</strong> You agree to report suspected animal biosecurity incidents (such as African Swine Fever, Avian Influenza, or Foot-and-Mouth Disease) promptly to prevent outbreak propagation across Camarines Sur 1st District.</p>
+                <p style="margin-top:10px;"><strong>3. Data Privacy (RA 10173):</strong> Your personal information will be protected and used exclusively by verified DA officials and municipal agriculture offices for disease prevention, assistance programs, and livestock accreditation.</p>
+            </div>
+            <button type="button" onclick="acceptTermsModal()" style="width:100%;background:#123f33;color:#fff;border:none;padding:12px;border-radius:12px;font-weight:700;font-size:0.95rem;cursor:pointer;">I Accept the Terms &amp; Conditions</button>
+        </div>
+    </div>
+
     <script>
+        function openTermsModal() {
+            const m = document.getElementById('termsModal');
+            if (m) m.style.display = 'flex';
+        }
+        function closeTermsModal() {
+            const m = document.getElementById('termsModal');
+            if (m) m.style.display = 'none';
+        }
+        function acceptTermsModal() {
+            closeTermsModal();
+            const t = document.getElementById('terms');
+            if (t) t.checked = true;
+        }
+
         const passwordInput = document.getElementById('pass');
         const toggleIcon = document.getElementById('toggleIcon');
         const strengthBar = document.getElementById('strengthBar');

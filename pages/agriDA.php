@@ -1597,14 +1597,14 @@ $archived_reports = $pdo->query("
         <h3>Camarines Sur 1st District GIS Monitoring</h3>
         <p>Live spatial tracking of registered farms, disease alerts, and livestock density.</p>
       </div>
-      <a class="btn-top btn-top-primary" href="maps/farm-map.php" target="_blank" rel="noopener">
+      <a class="btn-top btn-top-primary" href="../maps/farm-map.php" target="_blank" rel="noopener">
         <i class="bi bi-arrows-fullscreen"></i>
         <span>Full Map View</span>
       </a>
     </div>
 
     <div class="map-section-card">
-      <iframe class="map-frame-view" src="maps/farm-map.php" title="Camarines Sur 1st District GIS Map" allow="fullscreen" allowfullscreen></iframe>
+      <iframe class="map-frame-view" src="../maps/farm-map.php" title="Camarines Sur 1st District GIS Map" allow="fullscreen" allowfullscreen></iframe>
     </div>
   </section>
 
@@ -2227,7 +2227,7 @@ function initOfficialMap() {
   if (typeof google === 'undefined' || !google.maps) {
     const el = document.getElementById('officialMap');
     if (el && !el.querySelector('iframe')) {
-      el.innerHTML = '<iframe src="maps/farm-map.php" style="width:100%;height:100%;min-height:540px;border:none;border-radius:12px;" title="Camarines Sur 1st District GIS Map"></iframe>';
+      el.innerHTML = '<iframe src="../maps/farm-map.php" style="width:100%;height:100%;min-height:540px;border:none;border-radius:12px;" title="Camarines Sur 1st District GIS Map"></iframe>';
       const leg = document.getElementById('mapLegend');
       if (leg) leg.style.display = 'none';
     }

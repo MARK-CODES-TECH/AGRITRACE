@@ -2533,7 +2533,7 @@ unset($_SESSION['admin_flash']);
                     <span>System Active</span>
                 </div>
 
-                <a href="maps/farm-map.php" target="_blank" rel="noopener" class="btn-top btn-top-primary">
+                <a href="../maps/farm-map.php" target="_blank" rel="noopener" class="btn-top btn-top-primary">
                     <i class="bi bi-map"></i>
                     <span>Live Map View</span>
                 </a>
@@ -2863,7 +2863,7 @@ unset($_SESSION['admin_flash']);
                     </div>
                     <div style="display:flex; gap:10px;">
                         <a class="btn-top btn-top-ghost" href="?export=farms"><i class="bi bi-download"></i> Export CSV</a>
-                        <a class="btn-top btn-top-primary" href="maps/farm-map.php" target="_blank" rel="noopener"><i class="bi bi-map"></i> View Map</a>
+                        <a class="btn-top btn-top-primary" href="../maps/farm-map.php" target="_blank" rel="noopener"><i class="bi bi-map"></i> View Map</a>
                     </div>
                 </div>
 
@@ -3264,14 +3264,14 @@ unset($_SESSION['admin_flash']);
                         <h3>Camarines Sur 1st District GIS Monitoring</h3>
                         <p>Live spatial tracking of registered farms, disease alerts, and livestock density.</p>
                     </div>
-                    <a class="btn-top btn-top-primary" href="maps/farm-map.php" target="_blank" rel="noopener">
+                    <a class="btn-top btn-top-primary" href="../maps/farm-map.php" target="_blank" rel="noopener">
                         <i class="bi bi-arrows-fullscreen"></i>
                         <span>Full Map View</span>
                     </a>
                 </div>
 
                 <div class="map-section-card">
-                    <iframe class="map-frame-view" src="maps/farm-map.php" title="Camarines Sur 1st District GIS Map" allow="fullscreen" allowfullscreen></iframe>
+                    <iframe class="map-frame-view" src="../maps/farm-map.php" title="Camarines Sur 1st District GIS Map" allow="fullscreen" allowfullscreen></iframe>
                 </div>
             </section>
 

@@ -268,6 +268,10 @@
               <i class="bi bi-building-check"></i>
               <span>Official Portal</span>
             </a>
+            <a href="admin.php" class="dropdown-item">
+              <i class="bi bi-shield-lock-fill"></i>
+              <span>Admin Console</span>
+            </a>
           </div>
         </div>
       </li>
@@ -280,7 +284,7 @@
       <p style="color: var(--text-muted); font-size: 1.25rem; margin-bottom: 20px; font-weight: 400;">Digital Livestock Registration & Reporting System</p>
       
       <div class="hero-buttons">
-        <a href="login.php" class="btn btn-primary" onclick="toggleLoginDropdown(event)">Get Started</a>
+        <a href="login.php" class="btn btn-primary">Get Started</a>
         <a href="public-report-form.php" class="btn btn-outline">Public Report</a>
       </div>
 
