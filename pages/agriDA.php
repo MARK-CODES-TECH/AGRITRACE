@@ -925,261 +925,190 @@ $archived_reports = $pdo->query("
     .at-card .at-lbl { font-size: 0.72rem; color: var(--c-text-sub); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
 
     /* ═══════════════════════════════════════════════════════════════════════
-       MODERN AGRICULTURE OFFICIAL PROFILE STYLES
+       MODERN SAAS PROFILE CARD STYLES
        ═══════════════════════════════════════════════════════════════════════ */
-    .da-pf-container {
-      display: flex;
-      flex-direction: column;
-      gap: 1.25rem;
-      max-width: 1080px;
-      margin: 0 auto;
-    }
-    .da-pf-hero {
-      background: linear-gradient(135deg, #064e3b 0%, #065f46 50%, #047857 100%);
-      border-radius: 22px;
-      padding: 1.75rem 1.6rem;
-      color: #fff;
-      position: relative;
+    .profile-card-wrapper {
+      max-width: 560px;
+      margin: 1.5rem auto 2.5rem;
+      background: #ffffff;
+      border-radius: 24px;
+      box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.09), 0 0 0 1px rgba(0, 0, 0, 0.05);
       overflow: hidden;
-      box-shadow: 0 12px 32px -8px rgba(6, 78, 59, 0.35);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
-    .da-pf-hero::before {
+    .profile-card-header {
+      background: linear-gradient(145deg, #064e3b 0%, #065f46 45%, #059669 100%);
+      padding: 34px 24px 26px;
+      text-align: center;
+      position: relative;
+      color: #ffffff;
+      overflow: hidden;
+    }
+    .profile-card-header::before {
       content: '';
       position: absolute;
-      top: -70px;
-      right: -70px;
-      width: 240px;
-      height: 240px;
+      top: -50px;
+      right: -50px;
+      width: 180px;
+      height: 180px;
       border-radius: 50%;
-      background: radial-gradient(circle, rgba(255,255,255,0.16) 0%, transparent 70%);
+      background: radial-gradient(circle, rgba(255,255,255,0.18) 0%, transparent 70%);
       pointer-events: none;
     }
-    .da-pf-hero-body {
+    .profile-card-header::after {
+      content: '';
+      position: absolute;
+      bottom: -40px;
+      left: -30px;
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .profile-avatar-circle {
+      width: 78px;
+      height: 78px;
+      margin: 0 auto 12px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.18);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 3px solid rgba(255, 255, 255, 0.45);
       display: flex;
-      flex-direction: column;
-      gap: 1.25rem;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.9rem;
+      font-weight: 800;
+      color: #ffffff;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+      overflow: hidden;
       position: relative;
       z-index: 1;
     }
-    @media (min-width: 768px) {
-      .da-pf-hero-body {
-        flex-direction: row;
-        align-items: center;
-        justify-content: space-between;
-      }
-    }
-    .da-pf-user-wrap {
-      display: flex;
-      align-items: center;
-      gap: 1.25rem;
-    }
-    .da-pf-avatar-container {
-      position: relative;
-      flex-shrink: 0;
-    }
-    .da-pf-avatar {
-      width: 92px;
-      height: 92px;
-      border-radius: 24px;
-      background: rgba(255, 255, 255, 0.16);
-      backdrop-filter: blur(8px);
-      border: 3px solid rgba(255, 255, 255, 0.38);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 2.2rem;
-      font-weight: 800;
-      color: #fff;
-      overflow: hidden;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
-    }
-    .da-pf-avatar img {
+    .profile-avatar-circle img {
       width: 100%;
       height: 100%;
       object-fit: cover;
-    }
-    .da-pf-avatar-btn {
-      position: absolute;
-      bottom: -4px;
-      right: -4px;
-      width: 32px;
-      height: 32px;
       border-radius: 50%;
-      background: #fff;
-      color: #064e3b;
-      border: 2px solid #047857;
-      display: flex;
+    }
+    .profile-header-name {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: #ffffff;
+      margin: 0 0 3px;
+      line-height: 1.25;
+      letter-spacing: -0.01em;
+      position: relative;
+      z-index: 1;
+    }
+    .profile-header-role {
+      font-size: 0.86rem;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.85);
+      margin: 0;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      cursor: pointer;
-      font-size: 0.85rem;
-      box-shadow: 0 3px 8px rgba(0,0,0,0.2);
-      transition: transform 0.15s, background 0.15s;
+      gap: 6px;
+      position: relative;
+      z-index: 1;
     }
-    .da-pf-avatar-btn:hover {
-      transform: scale(1.1);
-      background: #ecfdf5;
+    .profile-card-body {
+      padding: 24px 28px 28px;
     }
-    .da-pf-meta-name {
-      font-size: 1.55rem;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-      margin: 0 0 0.35rem;
-      line-height: 1.2;
-      font-family: 'Syne', sans-serif;
-    }
-    .da-pf-tags-row {
+    .profile-sec-heading {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-    }
-    .da-pf-tag {
-      background: rgba(255, 255, 255, 0.18);
-      backdrop-filter: blur(6px);
-      padding: 3px 10px;
-      border-radius: 9999px;
-      font-size: 0.72rem;
+      gap: 8px;
+      font-size: 0.92rem;
       font-weight: 700;
-      letter-spacing: 0.04em;
-      border: 1px solid rgba(255, 255, 255, 0.25);
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
+      color: #047857;
+      margin-top: 1.5rem;
+      margin-bottom: 0.65rem;
     }
-    .da-pf-verified {
-      background: #10b981;
-      color: #fff;
-      padding: 3px 9px;
-      border-radius: 9999px;
-      font-size: 0.72rem;
-      font-weight: 700;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+    .profile-sec-heading:first-of-type {
+      margin-top: 0;
     }
-    .da-pf-actions {
+    .profile-sec-heading i {
+      font-size: 1.05rem;
+      color: #059669;
+    }
+    .profile-info-row {
       display: flex;
-      gap: 0.5rem;
-      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      padding: 11px 4px;
+      border-bottom: 1px solid #f1f5f9;
+      transition: background 0.15s ease, padding 0.15s ease;
     }
-    .da-pf-btn-pri {
-      background: #fff;
-      color: #064e3b;
+    .profile-info-row:hover {
+      background: #f8fafc;
+      padding-left: 8px;
+      padding-right: 8px;
+      border-radius: 8px;
+    }
+    .profile-info-label {
+      font-size: 0.86rem;
+      font-weight: 500;
+      color: #64748b;
+    }
+    .profile-info-value {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #0f172a;
+      text-align: right;
+      max-width: 60%;
+      word-break: break-word;
+    }
+    .profile-card-actions {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 26px;
+      padding-top: 6px;
+    }
+    .profile-btn-edit {
+      background: #059669;
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 0.9rem;
+      padding: 10px 28px;
+      border-radius: 9999px;
       border: none;
-      padding: 0.65rem 1.15rem;
-      border-radius: 12px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 14px rgba(5, 150, 105, 0.35);
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+    .profile-btn-edit:hover {
+      background: #047857;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(5, 150, 105, 0.45);
+    }
+    .profile-btn-pw {
+      background: #f8fafc;
+      color: #334155;
       font-weight: 700;
-      font-size: 0.85rem;
+      font-size: 0.9rem;
+      padding: 10px 22px;
+      border-radius: 9999px;
+      border: 1px solid #e2e8f0;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       gap: 7px;
-      transition: all 0.2s;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      transition: all 0.2s ease;
       font-family: inherit;
     }
-    .da-pf-btn-pri:hover {
+    .profile-btn-pw:hover {
+      background: #e2e8f0;
+      color: #0f172a;
       transform: translateY(-2px);
-      background: #f0fdf4;
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
-    }
-    .da-pf-btn-glass {
-      background: rgba(255, 255, 255, 0.16);
-      color: #fff;
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      padding: 0.65rem 1rem;
-      border-radius: 12px;
-      font-weight: 600;
-      font-size: 0.85rem;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.2s;
-      font-family: inherit;
-      backdrop-filter: blur(6px);
-    }
-    .da-pf-btn-glass:hover {
-      background: rgba(255, 255, 255, 0.26);
-    }
-
-    .da-pf-card {
-      background: #fff;
-      border: 1px solid var(--c-slate-100);
-      border-radius: 18px;
-      padding: 1.35rem 1.25rem;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.02);
-      margin-bottom: 1rem;
-    }
-    .da-pf-card-hdr {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 1.15rem;
-      padding-bottom: 0.75rem;
-      border-bottom: 1px solid var(--c-slate-100);
-    }
-    .da-pf-card-title {
-      font-size: 1rem;
-      font-weight: 800;
-      color: var(--c-text-main);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .da-pf-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 0.85rem;
-    }
-    @media (min-width: 640px) {
-      .da-pf-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-    .da-pf-field {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      padding: 0.85rem 1rem;
-      position: relative;
-      transition: border-color 0.15s, background 0.15s;
-    }
-    .da-pf-field:hover {
-      background: #fff;
-      border-color: #cbd5e1;
-    }
-    .da-pf-field-lbl {
-      font-size: 0.68rem;
-      font-weight: 700;
-      color: var(--c-text-sub);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      margin-bottom: 4px;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-    .da-pf-field-val {
-      font-size: 0.88rem;
-      font-weight: 700;
-      color: var(--c-text-main);
-      word-break: break-word;
-    }
-    .da-pf-copy {
-      background: none;
-      border: none;
-      color: var(--c-text-sub);
-      cursor: pointer;
-      padding: 2px 5px;
-      border-radius: 4px;
-      font-size: 0.75rem;
-    }
-    .da-pf-copy:hover {
-      color: #10b981;
-      background: #ecfdf5;
     }
     .da-preview-avatar {
       width: 72px;
@@ -2130,200 +2059,88 @@ $archived_reports = $pdo->query("
 
   <!-- ===== PROFILE ===== -->
   <section id="sec-profile" class="section">
-    <div class="da-pf-container">
+    <div class="profile-card-wrapper">
       
-      <!-- 1. Hero Header Banner -->
-      <div class="da-pf-hero">
-        <div class="da-pf-hero-body">
-          <div class="da-pf-user-wrap">
-            <div class="da-pf-avatar-container">
-              <div class="da-pf-avatar" id="daAvatarDisplay">
-                <?php if (!empty($user_profile['profile_pix']) && file_exists($user_profile['profile_pix'])): ?>
-                  <img src="<?= htmlspecialchars($user_profile['profile_pix']) ?>" alt="Officer Profile">
-                <?php else: ?>
-                  <?= strtoupper(substr($user_profile['firstName'] ?? 'U', 0, 1) . substr($user_profile['lastName'] ?? '', 0, 1)) ?>
-                <?php endif; ?>
-              </div>
-              <button type="button" class="da-pf-avatar-btn" onclick="openEditModal()" title="Update Profile Photo">
-                <i class="bi bi-camera-fill"></i>
-              </button>
-            </div>
-            <div>
-              <h1 class="da-pf-meta-name"><?= htmlspecialchars(($user_profile['firstName']??'').' '.($user_profile['lastName']??'')) ?></h1>
-              <div class="da-pf-tags-row">
-                <span class="da-pf-tag"><i class="bi bi-shield-shaded"></i> <?= htmlspecialchars($user_role) ?></span>
-                <span class="da-pf-verified"><i class="bi bi-patch-check-fill"></i> DA Verified</span>
-                <?php if(!empty($user_profile['gov_id'])): ?>
-                <span class="da-pf-tag"><i class="bi bi-upc-scan"></i> ID: <?= htmlspecialchars($user_profile['gov_id']) ?></span>
-                <?php endif; ?>
-                <?php if(!empty($user_profile['position'])): ?>
-                <span class="da-pf-tag"><i class="bi bi-briefcase"></i> <?= htmlspecialchars($user_profile['position']) ?></span>
-                <?php endif; ?>
-              </div>
-            </div>
-          </div>
-          <div class="da-pf-actions">
-            <button type="button" class="da-pf-btn-pri" onclick="openEditModal()">
-              <i class="bi bi-pencil-square"></i> Edit Credentials
-            </button>
-            <button type="button" class="da-pf-btn-glass" onclick="document.getElementById('daOfficerPwForm')?.scrollIntoView({behavior:'smooth'})">
-              <i class="bi bi-shield-lock"></i> Change Password
-            </button>
-            <button type="button" class="da-pf-btn-glass" onclick="window.print()">
-              <i class="bi bi-printer"></i> Print ID
-            </button>
-          </div>
+      <!-- Top Green Header -->
+      <div class="profile-card-header">
+        <div class="profile-avatar-circle" id="daAvatarDisplay">
+          <?php if (!empty($user_profile['profile_pix']) && file_exists($user_profile['profile_pix'])): ?>
+            <img src="<?= htmlspecialchars($user_profile['profile_pix']) ?>" alt="Officer Profile">
+          <?php else: ?>
+            <?= strtoupper(substr($user_profile['firstName'] ?? 'U', 0, 1)) ?>
+          <?php endif; ?>
+        </div>
+        <h2 class="profile-header-name"><?= htmlspecialchars(($user_profile['firstName']??'').' '.($user_profile['lastName']??'')) ?></h2>
+        <div class="profile-header-role">
+          <?= htmlspecialchars($user_role) ?>
         </div>
       </div>
 
-      <!-- 2. Official Identification & Contact Information -->
-      <div class="da-pf-card">
-        <div class="da-pf-card-hdr">
-          <div class="da-pf-card-title">
-            <i class="bi bi-person-vcard-fill" style="color:#059669;"></i> Official Identification &amp; Contact Information
-          </div>
-          <button type="button" class="btn-cancel" style="padding:6px 14px;font-size:0.8rem;" onclick="openEditModal()">
-            <i class="bi bi-pencil"></i> Edit Info
+      <!-- Card Body -->
+      <div class="profile-card-body">
+        
+        <!-- Personal Information -->
+        <div class="profile-sec-heading">
+          <i class="bi bi-person-fill"></i> Personal Information
+        </div>
+        <div class="profile-info-row">
+          <span class="profile-info-label">Email</span>
+          <span class="profile-info-value"><?= !empty($user_profile['email']) ? htmlspecialchars($user_profile['email']) : '—' ?></span>
+        </div>
+        <div class="profile-info-row">
+          <span class="profile-info-label">Mobile</span>
+          <span class="profile-info-value"><?= !empty($user_profile['mobile']) ? htmlspecialchars($user_profile['mobile']) : '—' ?></span>
+        </div>
+
+        <!-- Work Information -->
+        <div class="profile-sec-heading">
+          <i class="bi bi-briefcase-fill"></i> Work Information
+        </div>
+        <div class="profile-info-row">
+          <span class="profile-info-label">Gov't ID</span>
+          <span class="profile-info-value"><?= !empty($user_profile['gov_id']) ? htmlspecialchars($user_profile['gov_id']) : '—' ?></span>
+        </div>
+        <div class="profile-info-row">
+          <span class="profile-info-label">Department</span>
+          <span class="profile-info-value"><?= !empty($user_profile['department']) ? htmlspecialchars($user_profile['department']) : '—' ?></span>
+        </div>
+        <div class="profile-info-row">
+          <span class="profile-info-label">Position</span>
+          <span class="profile-info-value"><?= !empty($user_profile['position']) ? htmlspecialchars($user_profile['position']) : '—' ?></span>
+        </div>
+        <div class="profile-info-row">
+          <span class="profile-info-label">Office</span>
+          <span class="profile-info-value"><?= !empty($user_profile['office']) ? htmlspecialchars($user_profile['office']) : '—' ?></span>
+        </div>
+
+        <!-- Assignment -->
+        <div class="profile-sec-heading">
+          <i class="bi bi-geo-alt-fill"></i> Assignment
+        </div>
+        <div class="profile-info-row">
+          <span class="profile-info-label">Region</span>
+          <span class="profile-info-value"><?= !empty($user_profile['assigned_region']) ? htmlspecialchars($user_profile['assigned_region']) : '—' ?></span>
+        </div>
+        <div class="profile-info-row">
+          <span class="profile-info-label">Province</span>
+          <span class="profile-info-value"><?= !empty($user_profile['province']) ? htmlspecialchars($user_profile['province']) : '—' ?></span>
+        </div>
+        <div class="profile-info-row">
+          <span class="profile-info-label">Municipality</span>
+          <span class="profile-info-value"><?= !empty($user_profile['municipality']) ? htmlspecialchars($user_profile['municipality']) : '—' ?></span>
+        </div>
+
+        <!-- Actions -->
+        <div class="profile-card-actions">
+          <button type="button" class="profile-btn-edit" onclick="openEditModal()">
+            <i class="bi bi-pencil-square"></i> Edit Profile
+          </button>
+          <button type="button" class="profile-btn-pw" onclick="openPasswordModal()">
+            <i class="bi bi-shield-lock"></i> Change Password
           </button>
         </div>
-        <div class="da-pf-grid">
-          <div class="da-pf-field">
-            <div class="da-pf-field-lbl"><i class="bi bi-person-fill"></i> Full Name</div>
-            <div class="da-pf-field-val"><?= htmlspecialchars(($user_profile['firstName']??'').' '.($user_profile['lastName']??'')) ?></div>
-          </div>
 
-          <div class="da-pf-field">
-            <div class="da-pf-field-lbl">
-              <span><i class="bi bi-upc-scan"></i> Government Officer ID</span>
-              <?php if(!empty($user_profile['gov_id'])): ?>
-              <button type="button" class="da-pf-copy" onclick="copyTagId('<?= htmlspecialchars(addslashes($user_profile['gov_id'])) ?>', this)">Copy</button>
-              <?php endif; ?>
-            </div>
-            <div class="da-pf-field-val"><?= !empty($user_profile['gov_id']) ? htmlspecialchars($user_profile['gov_id']) : '<span style="color:var(--c-text-sub);font-weight:400;">Not specified</span>' ?></div>
-          </div>
-
-          <div class="da-pf-field">
-            <div class="da-pf-field-lbl">
-              <span><i class="bi bi-envelope-fill"></i> Official Email</span>
-              <?php if(!empty($user_profile['email'])): ?>
-              <button type="button" class="da-pf-copy" onclick="copyTagId('<?= htmlspecialchars(addslashes($user_profile['email'])) ?>', this)">Copy</button>
-              <?php endif; ?>
-            </div>
-            <div class="da-pf-field-val"><?= !empty($user_profile['email']) ? htmlspecialchars($user_profile['email']) : '<span style="color:var(--c-text-sub);font-weight:400;">No email registered</span>' ?></div>
-          </div>
-
-          <div class="da-pf-field">
-            <div class="da-pf-field-lbl">
-              <span><i class="bi bi-telephone-fill"></i> Mobile Contact</span>
-              <?php if(!empty($user_profile['mobile'])): ?>
-              <button type="button" class="da-pf-copy" onclick="copyTagId('<?= htmlspecialchars(addslashes($user_profile['mobile'])) ?>', this)">Copy</button>
-              <?php endif; ?>
-            </div>
-            <div class="da-pf-field-val"><?= !empty($user_profile['mobile']) ? htmlspecialchars($user_profile['mobile']) : '<span style="color:var(--c-text-sub);font-weight:400;">No mobile registered</span>' ?></div>
-          </div>
-
-          <div class="da-pf-field">
-            <div class="da-pf-field-lbl"><i class="bi bi-building-fill"></i> Department / Division</div>
-            <div class="da-pf-field-val"><?= !empty($user_profile['department']) ? htmlspecialchars($user_profile['department']) : 'Department of Agriculture' ?></div>
-          </div>
-
-          <div class="da-pf-field">
-            <div class="da-pf-field-lbl"><i class="bi bi-briefcase-fill"></i> Official Position</div>
-            <div class="da-pf-field-val"><?= !empty($user_profile['position']) ? htmlspecialchars($user_profile['position']) : 'Agriculture Official' ?></div>
-          </div>
-        </div>
       </div>
-
-      <!-- 3. Station & Administrative Assignment -->
-      <div class="da-pf-card">
-        <div class="da-pf-card-hdr">
-          <div class="da-pf-card-title">
-            <i class="bi bi-compass-fill" style="color:#059669;"></i> Station &amp; Administrative Assignment
-          </div>
-        </div>
-        <div class="da-pf-grid">
-          <div class="da-pf-field">
-            <div class="da-pf-field-lbl"><i class="bi bi-geo-alt-fill"></i> Administrative Region</div>
-            <div class="da-pf-field-val"><?= !empty($user_profile['assigned_region']) ? htmlspecialchars($user_profile['assigned_region']) : 'Region V - Bicol' ?></div>
-          </div>
-
-          <div class="da-pf-field">
-            <div class="da-pf-field-lbl"><i class="bi bi-map-fill"></i> Province</div>
-            <div class="da-pf-field-val"><?= !empty($user_profile['province']) ? htmlspecialchars($user_profile['province']) : 'Camarines Sur' ?></div>
-          </div>
-
-          <div class="da-pf-field">
-            <div class="da-pf-field-lbl"><i class="bi bi-pin-map-fill"></i> Municipality / District Coverage</div>
-            <div class="da-pf-field-val"><?= !empty($user_profile['municipality']) ? htmlspecialchars($user_profile['municipality']) : 'All Municipalities' ?></div>
-          </div>
-
-          <div class="da-pf-field">
-            <div class="da-pf-field-lbl"><i class="bi bi-bank2"></i> Field Extension Office / Station</div>
-            <div class="da-pf-field-val"><?= !empty($user_profile['office']) ? htmlspecialchars($user_profile['office']) : 'Provincial Agriculture Office' ?></div>
-          </div>
-        </div>
-
-        <div style="margin-top:1.25rem;padding:1rem;background:#f0fdf4;border-radius:14px;border:1px solid #bbf7d0;">
-          <div style="font-weight:800;color:#065f46;font-size:0.9rem;margin-bottom:0.35rem;display:flex;align-items:center;gap:6px;">
-            <i class="bi bi-check-circle-fill" style="color:#10b981;"></i> Regulatory &amp; Enforcement Mandates
-          </div>
-          <p style="font-size:0.8rem;color:#047857;margin:0;line-height:1.5;">
-            Authorized under the Bureau of Animal Industry and Department of Agriculture to conduct GAHP compliance inspections, issue animal travel permits, trigger regional quarantine buffer rings, and oversee biosecurity protocols.
-          </p>
-        </div>
-      </div>
-
-      <!-- 4. Account Password & Security Credentials -->
-      <div class="da-pf-card">
-        <div class="da-pf-card-hdr">
-          <div class="da-pf-card-title">
-            <i class="bi bi-shield-lock-fill" style="color:#059669;"></i> Account Password &amp; Credentials
-          </div>
-        </div>
-        <form id="daOfficerPwForm" autocomplete="off" style="max-width:520px;margin-bottom:1.5rem;">
-          <input type="hidden" name="action" value="change_officer_password">
-          <div class="form-group" style="margin-bottom:1rem;">
-            <label class="form-label">Current Password *</label>
-            <input type="password" class="form-input" name="current_password" required placeholder="Enter current password">
-          </div>
-          <div class="form-group" style="margin-bottom:1rem;">
-            <label class="form-label">New Password * (minimum 6 characters)</label>
-            <input type="password" class="form-input" name="new_password" required minlength="6" placeholder="Enter new strong password">
-          </div>
-          <div class="form-group" style="margin-bottom:1.25rem;">
-            <label class="form-label">Confirm New Password *</label>
-            <input type="password" class="form-input" name="confirm_password" required minlength="6" placeholder="Repeat new password">
-          </div>
-          <button type="submit" class="btn-save" id="btnUpdateOfficerPw">
-            <i class="bi bi-key-fill"></i> Update Password
-          </button>
-        </form>
-
-        <div style="border-top:1px solid var(--c-slate-100);padding-top:1.25rem;">
-          <div style="font-weight:800;color:var(--c-text-main);font-size:0.9rem;margin-bottom:0.75rem;display:flex;align-items:center;gap:6px;">
-            <i class="bi bi-cpu-fill" style="color:#3b82f6;"></i> Officer Security Audit &amp; Metadata
-          </div>
-          <div class="da-pf-grid">
-            <div class="da-pf-field">
-              <div class="da-pf-field-lbl">Officer User ID</div>
-              <div class="da-pf-field-val">#OFFICER-<?= str_pad($user_id, 4, '0', STR_PAD_LEFT) ?></div>
-            </div>
-            <div class="da-pf-field">
-              <div class="da-pf-field-lbl">System Authorization Role</div>
-              <div class="da-pf-field-val"><?= htmlspecialchars($user_role) ?></div>
-            </div>
-            <div class="da-pf-field">
-              <div class="da-pf-field-lbl">Official Registration Date</div>
-              <div class="da-pf-field-val"><?= !empty($user_profile['createdAt']) ? date('M d, Y h:i A', strtotime($user_profile['createdAt'])) : 'Active' ?></div>
-            </div>
-            <div class="da-pf-field">
-              <div class="da-pf-field-lbl">Account Status</div>
-              <div class="da-pf-field-val"><span style="color:#059669;font-weight:800;">● Active &amp; Clearance Granted</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
     </div>
 
     <!-- Edit Profile Modal -->
@@ -2417,6 +2234,37 @@ $archived_reports = $pdo->query("
         <div class="modal-actions">
           <button type="button" class="btn-cancel" onclick="closeEditModal()">Cancel</button>
           <button type="button" class="btn-save" onclick="submitProfile()"><i class="bi bi-check2"></i> Save Changes</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div id="passwordModal" class="modal-overlay">
+      <div class="modal-content" style="max-width:460px;">
+        <div class="modal-header">
+          <h3><i class="bi bi-shield-lock"></i> Change Password</h3>
+          <button class="modal-close" onclick="closePasswordModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="daOfficerPwForm" autocomplete="off">
+            <input type="hidden" name="action" value="change_officer_password">
+            <div class="form-group" style="margin-bottom:1rem;">
+              <label class="form-label">Current Password *</label>
+              <input type="password" class="form-input" name="current_password" required placeholder="Enter current password">
+            </div>
+            <div class="form-group" style="margin-bottom:1rem;">
+              <label class="form-label">New Password * (minimum 6 characters)</label>
+              <input type="password" class="form-input" name="new_password" required minlength="6" placeholder="Enter new strong password">
+            </div>
+            <div class="form-group" style="margin-bottom:1.25rem;">
+              <label class="form-label">Confirm New Password *</label>
+              <input type="password" class="form-input" name="confirm_password" required minlength="6" placeholder="Repeat new password">
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:1.5rem;">
+              <button type="button" class="btn-cancel" onclick="closePasswordModal()">Cancel</button>
+              <button type="submit" class="btn-save" id="btnUpdateOfficerPw"><i class="bi bi-key-fill"></i> Update Password</button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
@@ -2951,6 +2799,7 @@ if (daOfficerPwForm) {
       if (r.success) {
         showToast(r.message || 'Password updated successfully!', 'success');
         this.reset();
+        closePasswordModal();
       } else {
         showToast(r.message || 'Password update failed', 'error');
       }
@@ -2965,6 +2814,10 @@ if (daOfficerPwForm) {
 function openEditModal() { document.getElementById('editProfileModal').classList.add('active'); document.body.style.overflow = 'hidden'; }
 function closeEditModal() { document.getElementById('editProfileModal').classList.remove('active'); document.body.style.overflow = ''; }
 document.getElementById('editProfileModal').addEventListener('click', function(e) { if (e.target === this) closeEditModal(); });
+
+function openPasswordModal() { document.getElementById('passwordModal').classList.add('active'); document.body.style.overflow = 'hidden'; }
+function closePasswordModal() { document.getElementById('passwordModal').classList.remove('active'); document.body.style.overflow = ''; }
+document.getElementById('passwordModal')?.addEventListener('click', function(e) { if (e.target === this) closePasswordModal(); });
 
 async function submitProfile() {
   showLoading(true);
