@@ -39,6 +39,92 @@ const municipalityCenters = {
     Sipocot: [13.7636, 122.9733]
 };
 
+// ── BUTTER-SMOOTH HARDWARE-ACCELERATED WHEEL & TOUCHPAD ZOOM HANDLER ────────
+(function () {
+    if (typeof L === 'undefined') return;
+
+    L.Map.mergeOptions({
+        smoothWheelZoom: true,
+        smoothSensitivity: 1.0
+    });
+
+    L.Map.SmoothWheelZoom = L.Handler.extend({
+        addHooks: function () {
+            L.DomEvent.on(this._map._container, 'wheel', this._onWheelScroll, this);
+        },
+
+        removeHooks: function () {
+            L.DomEvent.off(this._map._container, 'wheel', this._onWheelScroll, this);
+            if (this._rafId) {
+                cancelAnimationFrame(this._rafId);
+                this._rafId = null;
+            }
+        },
+
+        _onWheelScroll: function (e) {
+            L.DomEvent.stop(e);
+
+            const map = this._map;
+            const container = map._container;
+            const rect = container.getBoundingClientRect();
+
+            // Precision zoom anchor coordinates relative to map container
+            this._mousePos = L.point(e.clientX - rect.left, e.clientY - rect.top);
+
+            if (!this._isZooming) {
+                this._isZooming = true;
+                this._goalZoom = map.getZoom();
+                this._rafId = requestAnimationFrame(this._updateZoom.bind(this));
+            }
+
+            const sensitivity = map.options.smoothSensitivity || 1.0;
+            let zoomDelta = 0;
+
+            if (e.ctrlKey) {
+                // Touchpad pinch-to-zoom (high-frequency small deltas)
+                zoomDelta = -e.deltaY * 0.015 * sensitivity;
+            } else if (e.deltaMode === 0) {
+                // Precision touchpad two-finger scroll (pixel mode)
+                zoomDelta = -e.deltaY * 0.0022 * sensitivity;
+            } else {
+                // Physical notched mouse wheel (line mode = 1, page mode = 2)
+                const lineDelta = e.deltaY > 0 ? -0.4 : 0.4;
+                zoomDelta = lineDelta * sensitivity;
+            }
+
+            const minZ = map.getMinZoom();
+            const maxZ = map.getMaxZoom();
+            this._goalZoom = Math.min(maxZ, Math.max(minZ, this._goalZoom + zoomDelta));
+        },
+
+        _updateZoom: function () {
+            if (!this._isZooming) return;
+
+            const map = this._map;
+            const currentZoom = map.getZoom();
+            const diff = this._goalZoom - currentZoom;
+
+            // When target zoom is reached within threshold, settle cleanly
+            if (Math.abs(diff) < 0.002) {
+                map.setZoomAround(this._mousePos, this._goalZoom, { animate: false });
+                this._isZooming = false;
+                this._rafId = null;
+                map.fire('zoomend');
+                map.fire('moveend');
+                return;
+            }
+
+            // High-refresh rate smooth ease-out (exponential damping)
+            const nextZoom = currentZoom + diff * 0.28;
+            map.setZoomAround(this._mousePos, nextZoom, { animate: false });
+
+            this._rafId = requestAnimationFrame(this._updateZoom.bind(this));
+        }
+    });
+
+    L.Map.addInitHook('addHandler', 'smoothWheelZoom', L.Map.SmoothWheelZoom);
+})();
+
 document.addEventListener('DOMContentLoaded', () => {
     initGisMap();
     bindControls();
@@ -56,54 +142,54 @@ function initGisMap() {
 
         // ── HARDWARE-ACCELERATED SILKY SMOOTH ZOOM & DEVICE GESTURES ──────
         preferCanvas: true,            // GPU HTML5 Canvas for all vector paths (polygons, circles)
-        zoomSnap: 0.25,                // Fractional zoom: fluid pinch-to-zoom on touchscreens & precision trackpads
-        zoomDelta: 0.5,                // Half-step smooth button zoom (no sudden 2x jarring jumps)
-        wheelPxPerZoomLevel: 120,      // Controlled mousewheel zoom speed (prevents erratic jumping)
-        wheelDebounceTime: 40,         // Debounce wheel scroll events for smooth 60fps frame rate
-        zoomAnimation: true,           // Hardware-accelerated CSS3 zoom transitions
+        zoomSnap: 0,                   // 0 = continuous sub-pixel zoom! Eliminates choppy stepped snapping
+        zoomDelta: 0.5,                // Step increment for +/- UI buttons
+        scrollWheelZoom: false,        // Disable Leaflet's legacy stepped/debounced scroll wheel
+        smoothWheelZoom: true,         // Enable 60/120fps hardware momentum zoom for touchpad & wheel
+        smoothSensitivity: 1.0,        // Natural 1:1 direct tracking sensitivity
+        zoomAnimation: true,           // Hardware-accelerated CSS3 transitions for button/flyTo zooms
         zoomAnimationThreshold: 8,     // Keep zoom animation active even across large zoom level jumps
         fadeAnimation: true,           // Smooth cross-fade transition between tile layers
         markerZoomAnimation: true,     // Animate marker coordinates fluidly during zoom
         inertia: true,                 // Smooth physics momentum panning
         inertiaDeceleration: 3000,     // Natural deceleration curve
-        inertiaMaxSpeed: 1800,
+        inertiaMaxSpeed: 2000,
         easeLinearity: 0.2,
         bounceAtZoomLimits: true,
         tap: false,                    // Modern touch handling without legacy 300ms tap delay
-        touchZoom: true,
-        doubleClickZoom: true,
-        scrollWheelZoom: true
+        touchZoom: true,               // Fluid touchscreen pinch-to-zoom
+        doubleClickZoom: true
     });
 
     // Zoom controls on bottom-left
     L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
-    // Clean, Edge-Cached Fast Basemaps with tile buffering
+    // Clean, Edge-Cached Fast Basemaps with optimized tile buffering
     baseLayers = {
         street: L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a> | AgriTrace+ GIS',
             subdomains: 'abcd',
             maxZoom: 19,
-            keepBuffer: 10,              // Keep 10 rows/cols of cached tiles to prevent grey boxes during zoom
-            updateWhenZooming: false,     // Don't thrash tile requests during 60fps zoom animation
-            updateWhenIdle: true,         // Wait for smooth pan/zoom to settle before requesting new tiles
-            updateInterval: 120
+            keepBuffer: 3,              // Optimal tile buffer: prevents GPU composite lag while keeping surrounding tiles cached
+            updateWhenZooming: false,   // Keeps current raster crisp & scaled during 60fps momentum
+            updateWhenIdle: true,       // Fetches sharp tiles the moment zoom settles
+            updateInterval: 100
         }),
         satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Tiles &copy; Esri, Maxar | AgriTrace+ GIS',
             maxZoom: 19,
-            keepBuffer: 8,
+            keepBuffer: 3,
             updateWhenZooming: false,
             updateWhenIdle: true,
-            updateInterval: 120
+            updateInterval: 100
         }),
         topo: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Tiles &copy; Esri | AgriTrace+ GIS',
             maxZoom: 18,
-            keepBuffer: 8,
+            keepBuffer: 3,
             updateWhenZooming: false,
             updateWhenIdle: true,
-            updateInterval: 120
+            updateInterval: 100
         })
     };
 

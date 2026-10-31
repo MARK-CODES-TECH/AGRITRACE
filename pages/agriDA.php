@@ -662,6 +662,7 @@ $archived_reports = $pdo->query("
       border: none;
       display: block;
       background: #f8fafc;
+      overscroll-behavior: contain;
     }
     @media (max-width: 768px) {
       .map-frame-view {

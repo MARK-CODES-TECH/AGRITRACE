@@ -1833,6 +1833,7 @@ unset($_SESSION['admin_flash']);
             border: none;
             display: block;
             background: #f8fafc;
+            overscroll-behavior: contain;
         }
 
         /* Unified Navigation / Full View Toggle Button */
