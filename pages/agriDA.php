@@ -939,12 +939,121 @@ $archived_reports = $pdo->query("
     .spinner { width: 42px; height: 42px; border: 3px solid var(--c-slate-200); border-top: 3px solid var(--c-brand-accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* ── AUTO-HIDE & FULL VIEW (Official DA Panel) ─────────────────── */
+    body.sidebar-autohide .panel-sidebar {
+      left: calc(-1 * var(--sidebar-width)) !important;
+      box-shadow: 20px 0 50px rgba(0,0,0,0.45) !important;
+      transition: left 0.28s cubic-bezier(0.16, 1, 0.3, 1), transform 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+      z-index: 1000 !important;
+    }
+
+    body.sidebar-autohide .panel-sidebar.hover-open,
+    body.sidebar-autohide .panel-sidebar:hover,
+    body.sidebar-autohide .panel-sidebar.open {
+      left: 0 !important;
+      transform: none !important;
+    }
+
+    body.sidebar-autohide .main-content {
+      margin-left: 0 !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      transition: margin-left 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+
+    body.sidebar-autohide .topbar {
+      left: 0 !important;
+      width: 100% !important;
+      transition: left 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+
+    .menu-btn {
+      display: flex !important;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    /* Edge Hover Detection Zone */
+    .da-hover-zone {
+      display: none;
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 20px;
+      z-index: 998;
+    }
+    body.sidebar-autohide .da-hover-zone {
+      display: block;
+    }
+
+    /* Floating Edge Trigger Tab */
+    .da-edge-trigger {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 0;
+      transform: translateY(-50%);
+      width: 22px;
+      height: 54px;
+      background: linear-gradient(180deg, #065f46, #022c22);
+      color: #34d399;
+      border-radius: 0 10px 10px 0;
+      box-shadow: 2px 0 12px rgba(0, 0, 0, 0.3);
+      z-index: 999;
+      cursor: pointer;
+      place-items: center;
+      font-size: 0.85rem;
+      border: 1px solid rgba(52, 211, 153, 0.3);
+      border-left: none;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      user-select: none;
+    }
+    .da-edge-trigger:hover {
+      width: 28px;
+      background: #059669;
+      color: #ffffff;
+    }
+    body.sidebar-autohide .da-edge-trigger {
+      display: grid;
+    }
+
+    .btn-da-pin {
+      margin-left: auto;
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #a7f3d0;
+      display: grid;
+      place-items: center;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn-da-pin:hover {
+      background: rgba(255, 255, 255, 0.2);
+      color: #fff;
+    }
+    body:not(.sidebar-autohide) .btn-da-pin {
+      color: #34d399;
+      background: rgba(52, 211, 153, 0.18);
+      border-color: rgba(52, 211, 153, 0.35);
+    }
+
     @media (min-width: 1024px) {
-      .panel-sidebar { left: 0; }
-      .main-content { margin-left: var(--sidebar-width); }
-      .topbar { left: var(--sidebar-width); }
-      .menu-btn { display: none; }
+      .panel-sidebar { left: 0; transition: left 0.28s cubic-bezier(0.16, 1, 0.3, 1); }
+      .main-content { margin-left: var(--sidebar-width); transition: margin-left 0.28s cubic-bezier(0.16, 1, 0.3, 1); }
+      .topbar { left: var(--sidebar-width); transition: left 0.28s cubic-bezier(0.16, 1, 0.3, 1); }
       .sidebar-overlay { display: none !important; }
+    }
+    @media (max-width: 1023px) {
+      .da-hover-zone,
+      .da-edge-trigger {
+        display: none !important;
+      }
     }
     @media (max-width: 600px) {
       .form-row-2 { grid-template-columns: 1fr; }
@@ -1034,7 +1143,12 @@ $archived_reports = $pdo->query("
     }
   </style>
 </head>
-<body>
+<body class="sidebar-autohide">
+
+<div class="da-hover-zone" id="daHoverZone" aria-hidden="true"></div>
+<div class="da-edge-trigger" id="daEdgeTrigger" title="Hover or click for navigation">
+  <i class="bi bi-chevron-right"></i>
+</div>
 
 <div class="sidebar-overlay" id="overlay" onclick="toggleSidebar()"></div>
 <div id="loadingOverlay"><div class="spinner"></div></div>
@@ -1045,6 +1159,9 @@ $archived_reports = $pdo->query("
       <div class="sidebar-logo">Agri<span>Trace+</span></div>
       <div class="sidebar-sub">Official Portal</div>
     </div>
+    <button type="button" class="btn-da-pin" id="daPinBtn" title="Pin / Unpin Sidebar">
+      <i class="bi bi-pin-angle"></i>
+    </button>
   </div>
   <nav class="sidebar-nav">
     <div class="nav-section-label">Main</div>
@@ -1857,9 +1974,27 @@ const farmsData         = <?= json_encode($all_farms) ?>;
 const incidentsData     = <?= json_encode($all_incidents) ?>;
 const publicReportsData = <?= json_encode($map_public_reports ?? []) ?>;
 
+function closeSidebar() {
+  const sb = document.getElementById('sidebar');
+  const ov = document.getElementById('overlay');
+  if (sb) sb.classList.remove('open', 'hover-open');
+  if (ov) ov.classList.remove('open');
+}
+
 function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('open');
-  document.getElementById('overlay').classList.toggle('open');
+  const sb = document.getElementById('sidebar');
+  const ov = document.getElementById('overlay');
+  if (window.innerWidth <= 1024) {
+    const isOpen = sb.classList.toggle('open');
+    ov.classList.toggle('open', isOpen);
+  } else {
+    if (sb.classList.contains('hover-open') || sb.classList.contains('open')) {
+      sb.classList.remove('hover-open', 'open');
+      ov.classList.remove('open');
+    } else {
+      sb.classList.add('hover-open');
+    }
+  }
 }
 
 function navTo(id, el) {
@@ -1872,7 +2007,7 @@ function navTo(id, el) {
     const span = el.querySelector('span');
     if (span) document.getElementById('page-title').innerText = span.innerText;
   }
-  if (window.innerWidth < 1024) toggleSidebar();
+  closeSidebar();
   if (id === 'reports') {
     animateBars();
     ['livestockTrendChart', 'animalDonutChart'].forEach(cid => { const c = (typeof Chart !== 'undefined') ? Chart.getChart(cid) : null; if (c) c.resize(); });
@@ -1886,6 +2021,88 @@ function navTo(id, el) {
     }
   }
 }
+
+// ── OFFICIAL AUTO-HIDE / FULL VIEW ENGINE ─────────────────────────
+const daSidebar     = document.getElementById('sidebar');
+const daHoverZone   = document.getElementById('daHoverZone');
+const daEdgeTrigger = document.getElementById('daEdgeTrigger');
+const daPinBtn      = document.getElementById('daPinBtn');
+const daOverlay     = document.getElementById('overlay');
+
+let isDaAutoHide = localStorage.getItem('agritrace_da_autohide') !== 'false';
+
+function applyDaAutoHide(enabled) {
+  isDaAutoHide = enabled;
+  localStorage.setItem('agritrace_da_autohide', enabled ? 'true' : 'false');
+  if (enabled) {
+    document.body.classList.add('sidebar-autohide');
+    if (daPinBtn) daPinBtn.innerHTML = '<i class="bi bi-pin-angle" title="Click to Pin Sidebar Open"></i>';
+  } else {
+    document.body.classList.remove('sidebar-autohide');
+    if (daSidebar) daSidebar.classList.remove('hover-open');
+    if (daPinBtn) daPinBtn.innerHTML = '<i class="bi bi-pin-fill" title="Click to Auto-Hide for Full View"></i>';
+  }
+  setTimeout(() => {
+    window.dispatchEvent(new Event('resize'));
+    ['livestockTrendChart', 'animalDonutChart'].forEach(cid => { 
+      const c = (typeof Chart !== 'undefined') ? Chart.getChart(cid) : null; 
+      if (c) c.resize(); 
+    });
+    const mapFrame = document.querySelector('.map-frame-view');
+    if (mapFrame && mapFrame.contentWindow) {
+      try { mapFrame.contentWindow.postMessage({ action: 'resize' }, '*'); } catch (e) {}
+    }
+  }, 300);
+}
+
+applyDaAutoHide(isDaAutoHide);
+
+daPinBtn?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  applyDaAutoHide(!isDaAutoHide);
+});
+
+let daHoverTimer = null;
+function openDaHover() {
+  if (!document.body.classList.contains('sidebar-autohide') || window.innerWidth <= 1024) return;
+  clearTimeout(daHoverTimer);
+  daSidebar?.classList.add('hover-open');
+}
+function closeDaHover() {
+  if (!document.body.classList.contains('sidebar-autohide') || window.innerWidth <= 1024) return;
+  clearTimeout(daHoverTimer);
+  daHoverTimer = setTimeout(() => {
+    daSidebar?.classList.remove('hover-open');
+  }, 300);
+}
+
+daHoverZone?.addEventListener('mouseenter', openDaHover);
+daEdgeTrigger?.addEventListener('mouseenter', openDaHover);
+daEdgeTrigger?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  daSidebar?.classList.toggle('hover-open');
+});
+
+daSidebar?.addEventListener('mouseenter', () => clearTimeout(daHoverTimer));
+daSidebar?.addEventListener('mouseleave', closeDaHover);
+
+document.addEventListener('mousemove', (e) => {
+  if (!document.body.classList.contains('sidebar-autohide') || window.innerWidth <= 1024) return;
+  if (e.clientX <= 20) {
+    openDaHover();
+  } else if (e.clientX > 320 && daSidebar?.classList.contains('hover-open')) {
+    closeDaHover();
+  }
+});
+
+daOverlay?.addEventListener('click', closeSidebar);
+
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey && e.key.toLowerCase() === 'b') || (e.key === '[' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))) {
+    e.preventDefault();
+    applyDaAutoHide(!isDaAutoHide);
+  }
+});
 
 function activateSection(id) {
   const navEl = document.querySelector(`.nav-item[onclick*="'${id}'"]`);

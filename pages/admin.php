@@ -1838,7 +1838,7 @@ unset($_SESSION['admin_flash']);
         /* Unified Navigation / Full View Toggle Button */
         .mobile-nav-toggle,
         .sidebar-toggle-btn {
-            display: grid;
+            display: grid !important;
             width: 38px;
             height: 38px;
             border-radius: 10px;
@@ -1892,14 +1892,14 @@ unset($_SESSION['admin_flash']);
 
         /* ── AUTO-HIDE & FULL VIEW MODE (Desktop & Tablets) ─────────────── */
         body.sidebar-autohide .sidebar {
-            transform: translateX(-100%);
+            transform: translateX(-100%) !important;
             box-shadow: 0 0 50px rgba(0, 0, 0, 0.55);
         }
 
         body.sidebar-autohide .sidebar.hover-open,
         body.sidebar-autohide .sidebar:hover,
         body.sidebar-autohide .sidebar.open {
-            transform: translateX(0);
+            transform: translateX(0) !important;
         }
 
         body.sidebar-autohide .main-canvas {
@@ -2384,7 +2384,7 @@ unset($_SESSION['admin_flash']);
 
     </style>
 </head>
-<body>
+<body class="sidebar-autohide">
 
     <!-- Auto-hide Edge Trigger Strip and Zone -->
     <div class="sidebar-hover-zone" id="sidebarHoverZone" aria-hidden="true"></div>

@@ -1,4 +1,4 @@
-# AgriTrace+ | Agricultural & Livestock Biosecurity Monitoring System
+# AgriTrace+ | Digital Livestock Registration and Monitoring System
 
 AgriTrace+ is a full-featured web-based livestock tracking, farm registry, biosecurity incident management, and public reporting platform tailored for municipal and regional agriculture offices (specifically Department of Agriculture & Municipal Agriculture Offices).
 

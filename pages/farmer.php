@@ -1742,12 +1742,116 @@ body{background:radial-gradient(1200px 500px at 90% -10%,rgba(16,185,129,.10),tr
 .d-hero{border-radius:26px;box-shadow:0 22px 44px -18px rgba(5,150,105,.55);}
 .d-kpi{border-radius:20px;}
 .d-card{border-radius:22px;box-shadow:0 8px 24px -14px rgba(15,23,42,.18);}
+/* ── AUTO-HIDE & FULL VIEW MODE (Farmer Panel) ─────────────────── */
+body.sidebar-autohide .drawer {
+  position: fixed !important;
+  left: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  width: 270px !important;
+  min-width: 270px !important;
+  max-width: 270px !important;
+  height: 100vh !important;
+  transform: translateX(-100%) !important;
+  z-index: 1000 !important;
+  box-shadow: 20px 0 50px rgba(0,0,0,0.45) !important;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+body.sidebar-autohide .drawer.hover-open,
+body.sidebar-autohide .drawer:hover,
+body.sidebar-autohide .drawer.open {
+  transform: translateX(0) !important;
+}
+
+body.sidebar-autohide .app {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  flex: 1 1 100% !important;
+  margin-left: 0 !important;
+}
+
+.menu-btn {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* Left Edge Hover Detection Zone */
+.farmer-hover-zone {
+  display: none;
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 20px;
+  z-index: 998;
+}
+body.sidebar-autohide .farmer-hover-zone {
+  display: block;
+}
+
+/* Floating Edge Trigger Tab */
+.farmer-edge-trigger {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 54px;
+  background: linear-gradient(180deg, #065f46, #022c22);
+  color: #34d399;
+  border-radius: 0 10px 10px 0;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.3);
+  z-index: 999;
+  cursor: pointer;
+  place-items: center;
+  font-size: 0.85rem;
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  border-left: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+.farmer-edge-trigger:hover {
+  width: 28px;
+  background: #059669;
+  color: #ffffff;
+}
+body.sidebar-autohide .farmer-edge-trigger {
+  display: grid;
+}
+
+.btn-drawer-pin {
+  margin-left: auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #a7f3d0;
+  display: grid;
+  place-items: center;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-drawer-pin:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+body:not(.sidebar-autohide) .btn-drawer-pin {
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.18);
+  border-color: rgba(52, 211, 153, 0.35);
+}
+
 @media (min-width:1024px){
   body{display:flex;overflow:hidden;}
-  .drawer{position:static;left:0;width:264px;min-width:264px;max-width:264px;height:100vh;flex-shrink:0;}
+  .drawer{position:static;left:0;width:264px;min-width:264px;max-width:264px;height:100vh;flex-shrink:0;transition:transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);}
   .drawer-overlay{display:none !important;}
-  .app{margin-left:0;flex:1;min-width:0;width:auto;height:100vh;overflow:hidden;}
-  .menu-btn{display:none;}
+  .app{margin-left:0;flex:1;min-width:0;width:auto;height:100vh;overflow:hidden;transition:all 0.28s ease;}
   .top-bar{height:64px;padding:0 1.75rem;}
   .content-inner{padding:1.5rem 1.75rem;}
   .modal-wrap{align-items:center;}
@@ -1818,13 +1922,21 @@ body{background:radial-gradient(1200px 500px at 90% -10%,rgba(16,185,129,.10),tr
 }
 </style>
 </head>
-<body>
+<body class="sidebar-autohide">
+
+<div class="farmer-hover-zone" id="farmerHoverZone" aria-hidden="true"></div>
+<div class="farmer-edge-trigger" id="farmerEdgeTrigger" title="Hover or click for navigation">
+  <i class="bi bi-chevron-right"></i>
+</div>
 
 <div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
 <aside class="drawer" id="drawer">
   <div class="drawer-hdr">
     <div class="brand">Agri<span>Trace+</span></div>
     <span class="portal-lbl">Farmer Portal</span>
+    <button type="button" class="btn-drawer-pin" id="farmerPinBtn" title="Pin / Unpin Sidebar">
+      <i class="bi bi-pin-angle"></i>
+    </button>
   </div>
   <nav class="drawer-nav">
     <div class="drawer-item active" data-page="dashboard"><i class="bi bi-grid-1x2-fill"></i>Dashboard</div>
@@ -2897,8 +3009,75 @@ function navTo(page){
 }
 document.querySelectorAll('.drawer-item[data-page]').forEach(t=>t.addEventListener('click',()=>navTo(t.dataset.page)));
 
-function openDrawer(){document.getElementById('drawer').classList.add('open');document.getElementById('drawerOverlay').classList.add('show');}
-function closeDrawer(){document.getElementById('drawer').classList.remove('open');document.getElementById('drawerOverlay').classList.remove('show');}
+function openDrawer(){
+  const d = document.getElementById('drawer');
+  if (window.innerWidth >= 1024 && document.body.classList.contains('sidebar-autohide')) {
+    d.classList.toggle('hover-open');
+  } else {
+    d.classList.add('open');
+    document.getElementById('drawerOverlay').classList.add('show');
+  }
+}
+function closeDrawer(){
+  const d = document.getElementById('drawer');
+  d.classList.remove('open', 'hover-open');
+  document.getElementById('drawerOverlay').classList.remove('show');
+}
+
+// ── AUTO-HIDE & FULL VIEW CONTROLLER ──────────────────────────────────────────
+const farmerDrawer = document.getElementById('drawer');
+const farmerHoverZone = document.getElementById('farmerHoverZone');
+const farmerEdgeTrigger = document.getElementById('farmerEdgeTrigger');
+const farmerPinBtn = document.getElementById('farmerPinBtn');
+
+let isFarmerAutoHide = localStorage.getItem('agritrace_farmer_autohide') !== 'false';
+
+function applyFarmerAutoHide(enabled) {
+  isFarmerAutoHide = enabled;
+  localStorage.setItem('agritrace_farmer_autohide', enabled ? 'true' : 'false');
+  if (enabled) {
+    document.body.classList.add('sidebar-autohide');
+    if (farmerPinBtn) farmerPinBtn.innerHTML = '<i class="bi bi-pin-angle" title="Click to Pin Sidebar Open"></i>';
+  } else {
+    document.body.classList.remove('sidebar-autohide');
+    farmerDrawer?.classList.remove('hover-open');
+    if (farmerPinBtn) farmerPinBtn.innerHTML = '<i class="bi bi-pin-fill" title="Click to Auto-Hide for Full View"></i>';
+  }
+}
+applyFarmerAutoHide(isFarmerAutoHide);
+
+farmerPinBtn?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  applyFarmerAutoHide(!isFarmerAutoHide);
+});
+
+let farmerHoverTimer = null;
+function openFarmerHover() {
+  if (!document.body.classList.contains('sidebar-autohide') || window.innerWidth < 1024) return;
+  clearTimeout(farmerHoverTimer);
+  farmerDrawer?.classList.add('hover-open');
+}
+function closeFarmerHover() {
+  if (!document.body.classList.contains('sidebar-autohide') || window.innerWidth < 1024) return;
+  clearTimeout(farmerHoverTimer);
+  farmerHoverTimer = setTimeout(() => {
+    farmerDrawer?.classList.remove('hover-open');
+  }, 300);
+}
+
+farmerHoverZone?.addEventListener('mouseenter', openFarmerHover);
+farmerEdgeTrigger?.addEventListener('mouseenter', openFarmerHover);
+farmerEdgeTrigger?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  farmerDrawer?.classList.toggle('hover-open');
+});
+farmerDrawer?.addEventListener('mouseenter', () => clearTimeout(farmerHoverTimer));
+farmerDrawer?.addEventListener('mouseleave', closeFarmerHover);
+
+document.addEventListener('mousemove', (e) => {
+  if (!document.body.classList.contains('sidebar-autohide') || window.innerWidth < 1024) return;
+  if (e.clientX <= 14) openFarmerHover();
+});
 function openModal(id){document.getElementById(id).classList.add('open');document.body.style.overflow='hidden';}
 function closeModal(id){document.getElementById(id).classList.remove('open');document.body.style.overflow='';}
 function showToast(msg,type='success'){const t=document.getElementById('toast');t.textContent=msg;t.className='toast toast-'+type+' show';clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),3200);}
