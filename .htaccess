@@ -1,0 +1,37 @@
+# Enable Rewrite Engine
+RewriteEngine On
+RewriteBase /AG/
+
+# Default DirectoryIndex
+DirectoryIndex pages/index.php index.php
+
+# Redirect assets/api/maps/uploads requested from inside pages/
+RewriteRule ^pages/api/(.*)$ api/$1 [L,QSA]
+RewriteRule ^pages/assets/(.*)$ assets/$1 [L]
+RewriteRule ^pages/maps/(.*)$ maps/$1 [L]
+RewriteRule ^pages/uploads/(.*)$ uploads/$1 [L]
+
+# Remove trailing slashes
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.+)/$ $1 [L,R=301]
+
+# Route root-level page requests (e.g. /AG/login.php) to pages/ if they exist there
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{DOCUMENT_ROOT}/AG/pages/$1.php -f [OR]
+RewriteCond %{DOCUMENT_ROOT}/pages/$1.php -f
+RewriteRule ^([a-zA-Z0-9_\-]+)\.php$ pages/$1.php [L,QSA]
+
+# Allow direct access to existing files and directories
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Set proper mime types
+<FilesMatch "\.js$">
+    AddType application/javascript .js
+</FilesMatch>
+
+<FilesMatch "\.css$">
+    AddType text/css .css
+</FilesMatch>

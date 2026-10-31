@@ -1,0 +1,33 @@
+# ── Composer Dependencies ──────────────────────────────
+/vendor/
+
+# ── User Uploads & Media (Preserve folders, ignore files) ─
+/uploads/chat/*
+!/uploads/chat/.gitkeep
+/uploads/farms/*
+!/uploads/farms/.gitkeep
+/uploads/incidents/*
+!/uploads/incidents/.gitkeep
+/uploads/profiles/*
+!/uploads/profiles/.gitkeep
+/uploads/public_reports/*
+!/uploads/public_reports/.gitkeep
+
+# ── Scratch & Temporary Files ───────────────────────────
+/scratch/
+*.bak
+*.log
+*.tmp
+*.temp
+test_*.txt
+*.cookie.txt
+
+# ── Environment & OS / IDE Files ────────────────────────
+.env
+.env.local
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
+.DS_Store
+

@@ -1,0 +1,9 @@
+FROM dunglas/frankenphp:php8.3
+
+WORKDIR /app
+
+COPY . /app
+
+RUN chown -R www-data:www-data /app
+
+CMD ["frankenphp", "php-server", "--root=/app", "--listen=:80"]
