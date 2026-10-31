@@ -1105,98 +1105,6 @@ $archived_reports = $pdo->query("
       background: rgba(255, 255, 255, 0.26);
     }
 
-    /* KPI Highlights */
-    .da-pf-stats {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 0.75rem;
-    }
-    @media (min-width: 900px) {
-      .da-pf-stats {
-        grid-template-columns: repeat(4, 1fr);
-        gap: 1rem;
-      }
-    }
-    .da-pf-stat-card {
-      background: #fff;
-      border: 1px solid var(--c-slate-100);
-      border-radius: 16px;
-      padding: 1rem;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.03);
-      transition: transform 0.2s;
-    }
-    .da-pf-stat-card:hover {
-      transform: translateY(-2px);
-    }
-    .da-pf-stat-icon {
-      width: 38px;
-      height: 38px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.15rem;
-      margin-bottom: 0.5rem;
-    }
-    .da-pf-stat-val {
-      font-size: 1.35rem;
-      font-weight: 800;
-      color: var(--c-text-main);
-      line-height: 1.1;
-      margin-bottom: 2px;
-    }
-    .da-pf-stat-lbl {
-      font-size: 0.72rem;
-      font-weight: 700;
-      color: var(--c-text-sub);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-
-    /* Tabs */
-    .da-pf-tabs {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      border-bottom: 2px solid var(--c-slate-200);
-      margin-bottom: 0.25rem;
-      overflow-x: auto;
-      scrollbar-width: none;
-    }
-    .da-pf-tabs::-webkit-scrollbar { display: none; }
-    .da-pf-tab-btn {
-      background: none;
-      border: none;
-      border-bottom: 2.5px solid transparent;
-      padding: 0.75rem 1.1rem;
-      font-size: 0.85rem;
-      font-weight: 700;
-      color: var(--c-text-sub);
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      margin-bottom: -2px;
-      transition: all 0.18s;
-      font-family: inherit;
-      white-space: nowrap;
-    }
-    .da-pf-tab-btn:hover { color: var(--c-text-main); }
-    .da-pf-tab-btn.active {
-      color: #064e3b;
-      border-bottom-color: #10b981;
-    }
-
-    .da-pf-panel {
-      display: none;
-      animation: daFadeIn 0.2s ease;
-    }
-    .da-pf-panel.active { display: block; }
-    @keyframes daFadeIn {
-      from { opacity: 0; transform: translateY(4px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
     .da-pf-card {
       background: #fff;
       border: 1px solid var(--c-slate-100);
@@ -2258,8 +2166,8 @@ $archived_reports = $pdo->query("
             <button type="button" class="da-pf-btn-pri" onclick="openEditModal()">
               <i class="bi bi-pencil-square"></i> Edit Credentials
             </button>
-            <button type="button" class="da-pf-btn-glass" onclick="switchDaTab('security')">
-              <i class="bi bi-shield-lock"></i> Security
+            <button type="button" class="da-pf-btn-glass" onclick="document.getElementById('daOfficerPwForm')?.scrollIntoView({behavior:'smooth'})">
+              <i class="bi bi-shield-lock"></i> Change Password
             </button>
             <button type="button" class="da-pf-btn-glass" onclick="window.print()">
               <i class="bi bi-printer"></i> Print ID
@@ -2268,194 +2176,132 @@ $archived_reports = $pdo->query("
         </div>
       </div>
 
-      <!-- 2. Executive KPI Dashboard -->
-      <div class="da-pf-stats">
-        <div class="da-pf-stat-card">
-          <div class="da-pf-stat-icon" style="background:#ecfdf5;color:#059669;">
-            <i class="bi bi-geo-alt-fill"></i>
+      <!-- 2. Official Identification & Contact Information -->
+      <div class="da-pf-card">
+        <div class="da-pf-card-hdr">
+          <div class="da-pf-card-title">
+            <i class="bi bi-person-vcard-fill" style="color:#059669;"></i> Official Identification &amp; Contact Information
           </div>
-          <div class="da-pf-stat-val" style="font-size:1.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-            <?= htmlspecialchars($user_profile['assigned_region'] ?: 'Region V - Bicol') ?>
-          </div>
-          <div class="da-pf-stat-lbl">Assigned Jurisdiction</div>
+          <button type="button" class="btn-cancel" style="padding:6px 14px;font-size:0.8rem;" onclick="openEditModal()">
+            <i class="bi bi-pencil"></i> Edit Info
+          </button>
         </div>
-
-        <div class="da-pf-stat-card">
-          <div class="da-pf-stat-icon" style="background:#eff6ff;color:#3b82f6;">
-            <i class="bi bi-award-fill"></i>
+        <div class="da-pf-grid">
+          <div class="da-pf-field">
+            <div class="da-pf-field-lbl"><i class="bi bi-person-fill"></i> Full Name</div>
+            <div class="da-pf-field-val"><?= htmlspecialchars(($user_profile['firstName']??'').' '.($user_profile['lastName']??'')) ?></div>
           </div>
-          <div class="da-pf-stat-val" style="font-size:1.15rem;">Tier 1 Authority</div>
-          <div class="da-pf-stat-lbl">Clearance Level</div>
-        </div>
 
-        <div class="da-pf-stat-card">
-          <div class="da-pf-stat-icon" style="background:#fef2f2;color:#ef4444;">
-            <i class="bi bi-shield-exclamation"></i>
+          <div class="da-pf-field">
+            <div class="da-pf-field-lbl">
+              <span><i class="bi bi-upc-scan"></i> Government Officer ID</span>
+              <?php if(!empty($user_profile['gov_id'])): ?>
+              <button type="button" class="da-pf-copy" onclick="copyTagId('<?= htmlspecialchars(addslashes($user_profile['gov_id'])) ?>', this)">Copy</button>
+              <?php endif; ?>
+            </div>
+            <div class="da-pf-field-val"><?= !empty($user_profile['gov_id']) ? htmlspecialchars($user_profile['gov_id']) : '<span style="color:var(--c-text-sub);font-weight:400;">Not specified</span>' ?></div>
           </div>
-          <div class="da-pf-stat-val"><?= $analytics['totals']['active_incidents'] ?> Active</div>
-          <div class="da-pf-stat-lbl">Active Surveillance</div>
-        </div>
 
-        <div class="da-pf-stat-card">
-          <div class="da-pf-stat-icon" style="background:#fef3c7;color:#d97706;">
-            <i class="bi bi-houses-fill"></i>
+          <div class="da-pf-field">
+            <div class="da-pf-field-lbl">
+              <span><i class="bi bi-envelope-fill"></i> Official Email</span>
+              <?php if(!empty($user_profile['email'])): ?>
+              <button type="button" class="da-pf-copy" onclick="copyTagId('<?= htmlspecialchars(addslashes($user_profile['email'])) ?>', this)">Copy</button>
+              <?php endif; ?>
+            </div>
+            <div class="da-pf-field-val"><?= !empty($user_profile['email']) ? htmlspecialchars($user_profile['email']) : '<span style="color:var(--c-text-sub);font-weight:400;">No email registered</span>' ?></div>
           </div>
-          <div class="da-pf-stat-val"><?= number_format($analytics['totals']['total_farms']) ?> Farms</div>
-          <div class="da-pf-stat-lbl">Regional Oversight</div>
-        </div>
-      </div>
 
-      <!-- 3. Navigation Tabs -->
-      <div class="da-pf-tabs" id="daTabsNav">
-        <button type="button" class="da-pf-tab-btn active" data-tab="profile" onclick="switchDaTab('profile')">
-          <i class="bi bi-person-badge-fill"></i> Officer Profile
-        </button>
-        <button type="button" class="da-pf-tab-btn" data-tab="jurisdiction" onclick="switchDaTab('jurisdiction')">
-          <i class="bi bi-building"></i> Office &amp; Jurisdiction
-        </button>
-        <button type="button" class="da-pf-tab-btn" data-tab="security" onclick="switchDaTab('security')">
-          <i class="bi bi-shield-check"></i> Security &amp; Password
-        </button>
-        <button type="button" class="da-pf-tab-btn" data-tab="regional" onclick="switchDaTab('regional')">
-          <i class="bi bi-graph-up-arrow"></i> Regional Authority
-        </button>
-      </div>
-
-      <!-- 4. Tab Panels -->
-      <!-- Tab A: Profile -->
-      <div id="daTabProfile" class="da-pf-panel active">
-        <div class="da-pf-card">
-          <div class="da-pf-card-hdr">
-            <div class="da-pf-card-title">
-              <i class="bi bi-person-vcard-fill" style="color:#059669;"></i> Official Identification &amp; Contact
+          <div class="da-pf-field">
+            <div class="da-pf-field-lbl">
+              <span><i class="bi bi-telephone-fill"></i> Mobile Contact</span>
+              <?php if(!empty($user_profile['mobile'])): ?>
+              <button type="button" class="da-pf-copy" onclick="copyTagId('<?= htmlspecialchars(addslashes($user_profile['mobile'])) ?>', this)">Copy</button>
+              <?php endif; ?>
             </div>
-            <button type="button" class="btn-cancel" style="padding:6px 14px;font-size:0.8rem;" onclick="openEditModal()">
-              <i class="bi bi-pencil"></i> Edit Info
-            </button>
+            <div class="da-pf-field-val"><?= !empty($user_profile['mobile']) ? htmlspecialchars($user_profile['mobile']) : '<span style="color:var(--c-text-sub);font-weight:400;">No mobile registered</span>' ?></div>
           </div>
-          <div class="da-pf-grid">
-            <div class="da-pf-field">
-              <div class="da-pf-field-lbl"><i class="bi bi-person-fill"></i> Full Name</div>
-              <div class="da-pf-field-val"><?= htmlspecialchars(($user_profile['firstName']??'').' '.($user_profile['lastName']??'')) ?></div>
-            </div>
 
-            <div class="da-pf-field">
-              <div class="da-pf-field-lbl">
-                <span><i class="bi bi-upc-scan"></i> Government Officer ID</span>
-                <?php if(!empty($user_profile['gov_id'])): ?>
-                <button type="button" class="da-pf-copy" onclick="copyTagId('<?= htmlspecialchars(addslashes($user_profile['gov_id'])) ?>', this)">Copy</button>
-                <?php endif; ?>
-              </div>
-              <div class="da-pf-field-val"><?= !empty($user_profile['gov_id']) ? htmlspecialchars($user_profile['gov_id']) : '<span style="color:var(--c-text-sub);font-weight:400;">Not specified</span>' ?></div>
-            </div>
+          <div class="da-pf-field">
+            <div class="da-pf-field-lbl"><i class="bi bi-building-fill"></i> Department / Division</div>
+            <div class="da-pf-field-val"><?= !empty($user_profile['department']) ? htmlspecialchars($user_profile['department']) : 'Department of Agriculture' ?></div>
+          </div>
 
-            <div class="da-pf-field">
-              <div class="da-pf-field-lbl">
-                <span><i class="bi bi-envelope-fill"></i> Official Email</span>
-                <?php if(!empty($user_profile['email'])): ?>
-                <button type="button" class="da-pf-copy" onclick="copyTagId('<?= htmlspecialchars(addslashes($user_profile['email'])) ?>', this)">Copy</button>
-                <?php endif; ?>
-              </div>
-              <div class="da-pf-field-val"><?= !empty($user_profile['email']) ? htmlspecialchars($user_profile['email']) : '<span style="color:var(--c-text-sub);font-weight:400;">No email registered</span>' ?></div>
-            </div>
-
-            <div class="da-pf-field">
-              <div class="da-pf-field-lbl">
-                <span><i class="bi bi-telephone-fill"></i> Contact Number</span>
-                <?php if(!empty($user_profile['mobile'])): ?>
-                <button type="button" class="da-pf-copy" onclick="copyTagId('<?= htmlspecialchars(addslashes($user_profile['mobile'])) ?>', this)">Copy</button>
-                <?php endif; ?>
-              </div>
-              <div class="da-pf-field-val"><?= !empty($user_profile['mobile']) ? htmlspecialchars($user_profile['mobile']) : '<span style="color:var(--c-text-sub);font-weight:400;">No mobile registered</span>' ?></div>
-            </div>
-
-            <div class="da-pf-field">
-              <div class="da-pf-field-lbl"><i class="bi bi-building-fill"></i> Department / Division</div>
-              <div class="da-pf-field-val"><?= !empty($user_profile['department']) ? htmlspecialchars($user_profile['department']) : 'Department of Agriculture' ?></div>
-            </div>
-
-            <div class="da-pf-field">
-              <div class="da-pf-field-lbl"><i class="bi bi-briefcase-fill"></i> Official Position</div>
-              <div class="da-pf-field-val"><?= !empty($user_profile['position']) ? htmlspecialchars($user_profile['position']) : 'Agriculture Official' ?></div>
-            </div>
+          <div class="da-pf-field">
+            <div class="da-pf-field-lbl"><i class="bi bi-briefcase-fill"></i> Official Position</div>
+            <div class="da-pf-field-val"><?= !empty($user_profile['position']) ? htmlspecialchars($user_profile['position']) : 'Agriculture Official' ?></div>
           </div>
         </div>
       </div>
 
-      <!-- Tab B: Jurisdiction -->
-      <div id="daTabJurisdiction" class="da-pf-panel">
-        <div class="da-pf-card">
-          <div class="da-pf-card-hdr">
-            <div class="da-pf-card-title">
-              <i class="bi bi-compass-fill" style="color:#059669;"></i> Station, Extension Office &amp; Jurisdiction
-            </div>
+      <!-- 3. Station & Administrative Assignment -->
+      <div class="da-pf-card">
+        <div class="da-pf-card-hdr">
+          <div class="da-pf-card-title">
+            <i class="bi bi-compass-fill" style="color:#059669;"></i> Station &amp; Administrative Assignment
           </div>
-          <div class="da-pf-grid">
-            <div class="da-pf-field">
-              <div class="da-pf-field-lbl"><i class="bi bi-geo-alt-fill"></i> Administrative Region</div>
-              <div class="da-pf-field-val"><?= !empty($user_profile['assigned_region']) ? htmlspecialchars($user_profile['assigned_region']) : 'Region V - Bicol' ?></div>
-            </div>
-
-            <div class="da-pf-field">
-              <div class="da-pf-field-lbl"><i class="bi bi-map-fill"></i> Province</div>
-              <div class="da-pf-field-val"><?= !empty($user_profile['province']) ? htmlspecialchars($user_profile['province']) : 'Camarines Sur' ?></div>
-            </div>
-
-            <div class="da-pf-field">
-              <div class="da-pf-field-lbl"><i class="bi bi-pin-map-fill"></i> Municipality / District Coverage</div>
-              <div class="da-pf-field-val"><?= !empty($user_profile['municipality']) ? htmlspecialchars($user_profile['municipality']) : 'All Municipalities' ?></div>
-            </div>
-
-            <div class="da-pf-field">
-              <div class="da-pf-field-lbl"><i class="bi bi-bank2"></i> Field Extension Office / Station</div>
-              <div class="da-pf-field-val"><?= !empty($user_profile['office']) ? htmlspecialchars($user_profile['office']) : 'Provincial Agriculture Office' ?></div>
-            </div>
+        </div>
+        <div class="da-pf-grid">
+          <div class="da-pf-field">
+            <div class="da-pf-field-lbl"><i class="bi bi-geo-alt-fill"></i> Administrative Region</div>
+            <div class="da-pf-field-val"><?= !empty($user_profile['assigned_region']) ? htmlspecialchars($user_profile['assigned_region']) : 'Region V - Bicol' ?></div>
           </div>
 
-          <div style="margin-top:1.25rem;padding:1rem;background:#f0fdf4;border-radius:14px;border:1px solid #bbf7d0;">
-            <div style="font-weight:800;color:#065f46;font-size:0.9rem;margin-bottom:0.35rem;display:flex;align-items:center;gap:6px;">
-              <i class="bi bi-check-circle-fill" style="color:#10b981;"></i> Regulatory &amp; Enforcement Mandates
-            </div>
-            <p style="font-size:0.8rem;color:#047857;margin:0;line-height:1.5;">
-              Authorized under the Bureau of Animal Industry and Department of Agriculture to conduct GAHP compliance inspections, issue animal travel permits, trigger regional quarantine buffer rings, and oversee biosecurity protocols.
-            </p>
+          <div class="da-pf-field">
+            <div class="da-pf-field-lbl"><i class="bi bi-map-fill"></i> Province</div>
+            <div class="da-pf-field-val"><?= !empty($user_profile['province']) ? htmlspecialchars($user_profile['province']) : 'Camarines Sur' ?></div>
           </div>
+
+          <div class="da-pf-field">
+            <div class="da-pf-field-lbl"><i class="bi bi-pin-map-fill"></i> Municipality / District Coverage</div>
+            <div class="da-pf-field-val"><?= !empty($user_profile['municipality']) ? htmlspecialchars($user_profile['municipality']) : 'All Municipalities' ?></div>
+          </div>
+
+          <div class="da-pf-field">
+            <div class="da-pf-field-lbl"><i class="bi bi-bank2"></i> Field Extension Office / Station</div>
+            <div class="da-pf-field-val"><?= !empty($user_profile['office']) ? htmlspecialchars($user_profile['office']) : 'Provincial Agriculture Office' ?></div>
+          </div>
+        </div>
+
+        <div style="margin-top:1.25rem;padding:1rem;background:#f0fdf4;border-radius:14px;border:1px solid #bbf7d0;">
+          <div style="font-weight:800;color:#065f46;font-size:0.9rem;margin-bottom:0.35rem;display:flex;align-items:center;gap:6px;">
+            <i class="bi bi-check-circle-fill" style="color:#10b981;"></i> Regulatory &amp; Enforcement Mandates
+          </div>
+          <p style="font-size:0.8rem;color:#047857;margin:0;line-height:1.5;">
+            Authorized under the Bureau of Animal Industry and Department of Agriculture to conduct GAHP compliance inspections, issue animal travel permits, trigger regional quarantine buffer rings, and oversee biosecurity protocols.
+          </p>
         </div>
       </div>
 
-      <!-- Tab C: Security -->
-      <div id="daTabSecurity" class="da-pf-panel">
-        <div class="da-pf-card">
-          <div class="da-pf-card-hdr">
-            <div class="da-pf-card-title">
-              <i class="bi bi-shield-lock-fill" style="color:#059669;"></i> Change Officer Access Password
-            </div>
+      <!-- 4. Account Password & Security Credentials -->
+      <div class="da-pf-card">
+        <div class="da-pf-card-hdr">
+          <div class="da-pf-card-title">
+            <i class="bi bi-shield-lock-fill" style="color:#059669;"></i> Account Password &amp; Credentials
           </div>
-          <form id="daOfficerPwForm" autocomplete="off" style="max-width:520px;">
-            <input type="hidden" name="action" value="change_officer_password">
-            <div class="form-group">
-              <label class="form-label">Current Password *</label>
-              <input type="password" class="form-input" name="current_password" required placeholder="Enter current password">
-            </div>
-            <div class="form-group">
-              <label class="form-label">New Password * (minimum 6 characters)</label>
-              <input type="password" class="form-input" name="new_password" required minlength="6" placeholder="Enter new strong password">
-            </div>
-            <div class="form-group" style="margin-bottom:1.25rem;">
-              <label class="form-label">Confirm New Password *</label>
-              <input type="password" class="form-input" name="confirm_password" required minlength="6" placeholder="Repeat new password">
-            </div>
-            <button type="submit" class="btn-save" id="btnUpdateOfficerPw">
-              <i class="bi bi-key-fill"></i> Update Password
-            </button>
-          </form>
         </div>
+        <form id="daOfficerPwForm" autocomplete="off" style="max-width:520px;margin-bottom:1.5rem;">
+          <input type="hidden" name="action" value="change_officer_password">
+          <div class="form-group" style="margin-bottom:1rem;">
+            <label class="form-label">Current Password *</label>
+            <input type="password" class="form-input" name="current_password" required placeholder="Enter current password">
+          </div>
+          <div class="form-group" style="margin-bottom:1rem;">
+            <label class="form-label">New Password * (minimum 6 characters)</label>
+            <input type="password" class="form-input" name="new_password" required minlength="6" placeholder="Enter new strong password">
+          </div>
+          <div class="form-group" style="margin-bottom:1.25rem;">
+            <label class="form-label">Confirm New Password *</label>
+            <input type="password" class="form-input" name="confirm_password" required minlength="6" placeholder="Repeat new password">
+          </div>
+          <button type="submit" class="btn-save" id="btnUpdateOfficerPw">
+            <i class="bi bi-key-fill"></i> Update Password
+          </button>
+        </form>
 
-        <div class="da-pf-card">
-          <div class="da-pf-card-hdr">
-            <div class="da-pf-card-title">
-              <i class="bi bi-cpu-fill" style="color:#3b82f6;"></i> Officer Security Audit &amp; System Metadata
-            </div>
+        <div style="border-top:1px solid var(--c-slate-100);padding-top:1.25rem;">
+          <div style="font-weight:800;color:var(--c-text-main);font-size:0.9rem;margin-bottom:0.75rem;display:flex;align-items:center;gap:6px;">
+            <i class="bi bi-cpu-fill" style="color:#3b82f6;"></i> Officer Security Audit &amp; Metadata
           </div>
           <div class="da-pf-grid">
             <div class="da-pf-field">
@@ -2473,38 +2319,6 @@ $archived_reports = $pdo->query("
             <div class="da-pf-field">
               <div class="da-pf-field-lbl">Account Status</div>
               <div class="da-pf-field-val"><span style="color:#059669;font-weight:800;">● Active &amp; Clearance Granted</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tab D: Regional -->
-      <div id="daTabRegional" class="da-pf-panel">
-        <div class="da-pf-card">
-          <div class="da-pf-card-hdr">
-            <div class="da-pf-card-title">
-              <i class="bi bi-bar-chart-fill" style="color:#059669;"></i> Regional Livestock Surveillance Summary
-            </div>
-            <button type="button" class="btn-cancel" onclick="downloadReport('pdf')" style="font-size:0.78rem;padding:6px 12px;">
-              <i class="bi bi-download"></i> Export Summary
-            </button>
-          </div>
-          <div class="da-pf-grid">
-            <div class="da-pf-field">
-              <div class="da-pf-field-lbl">Total Livestock Recorded</div>
-              <div class="da-pf-field-val" style="font-size:1.4rem;color:#059669;"><?= number_format($analytics['totals']['total_livestock']) ?> Heads</div>
-            </div>
-            <div class="da-pf-field">
-              <div class="da-pf-field-lbl">Total Registered Farms</div>
-              <div class="da-pf-field-val" style="font-size:1.4rem;color:#3b82f6;"><?= number_format($analytics['totals']['total_farms']) ?> Facilities</div>
-            </div>
-            <div class="da-pf-field">
-              <div class="da-pf-field-lbl">Total Incident Reports</div>
-              <div class="da-pf-field-val" style="font-size:1.4rem;color:#f59e0b;"><?= number_format($analytics['totals']['total_incidents']) ?> Filed</div>
-            </div>
-            <div class="da-pf-field">
-              <div class="da-pf-field-lbl">Active Critical Incidents</div>
-              <div class="da-pf-field-val" style="font-size:1.4rem;color:#ef4444;"><?= number_format($analytics['totals']['active_incidents']) ?> Active</div>
             </div>
           </div>
         </div>
@@ -3074,19 +2888,9 @@ function animateBars() {
 }
 
 function switchDaTab(tabName) {
-  document.querySelectorAll('#daTabsNav .da-pf-tab-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.tab === tabName);
-  });
-  const tabIds = {
-    profile: 'daTabProfile',
-    jurisdiction: 'daTabJurisdiction',
-    security: 'daTabSecurity',
-    regional: 'daTabRegional'
-  };
-  Object.keys(tabIds).forEach(k => {
-    const el = document.getElementById(tabIds[k]);
-    if (el) el.classList.toggle('active', k === tabName);
-  });
+  if (tabName === 'security') {
+    document.getElementById('daOfficerPwForm')?.scrollIntoView({behavior:'smooth'});
+  }
 }
 
 function previewDaPhoto(input) {

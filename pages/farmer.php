@@ -4435,238 +4435,120 @@ body:not(.sidebar-autohide) .btn-drawer-pin {
                 <button type="button" class="pf-btn-primary" onclick="openModal('profileModal')">
                   <i class="bi bi-pencil-square"></i> Edit Profile
                 </button>
-                <button type="button" class="pf-btn-glass" onclick="switchProfileTab('security')">
-                  <i class="bi bi-shield-lock"></i> Security
-                </button>
-                <button type="button" class="pf-btn-glass" onclick="navTo('ecert')">
-                  <i class="bi bi-award-fill"></i> E-Certificates
+                <button type="button" class="pf-btn-glass" onclick="document.getElementById('farmerPwForm')?.scrollIntoView({behavior:'smooth'})">
+                  <i class="bi bi-shield-lock"></i> Change Password
                 </button>
               </div>
             </div>
           </div>
 
-          <!-- 2. KPI Summary Bar -->
-          <div class="pf-stats-grid">
-            <div class="pf-stat-card">
-              <div class="pf-stat-icon" style="background:#ecfdf5;color:#059669;">
-                <i class="bi bi-house-door-fill"></i>
+          <!-- 2. Personal & Contact Information -->
+          <div class="pf-panel-card">
+            <div class="pf-panel-hdr">
+              <div class="pf-panel-title">
+                <i class="bi bi-person-bounding-box" style="color:#059669;"></i> Identification &amp; Contact Information
               </div>
-              <div class="pf-stat-val"><?= count($farmsData) ?></div>
-              <div class="pf-stat-lbl">Registered Farms</div>
+              <button type="button" class="btn btn-secondary" style="font-size:0.75rem;padding:0.35rem 0.75rem;" onclick="openModal('profileModal')">
+                <i class="bi bi-pencil"></i> Edit Details
+              </button>
             </div>
-
-            <div class="pf-stat-card">
-              <div class="pf-stat-icon" style="background:#eff6ff;color:#3b82f6;">
-                <i class="bi bi-boxes"></i>
+            <div class="pf-grid-fields">
+              <div class="pf-field-item">
+                <div class="pf-field-lbl"><i class="bi bi-person-fill"></i> Full Name</div>
+                <div class="pf-field-val"><?= htmlspecialchars($firstName.' '.$lastName) ?></div>
               </div>
-              <div class="pf-stat-val"><?= number_format($totalLivestock) ?></div>
-              <div class="pf-stat-lbl">Livestock Heads</div>
-            </div>
 
-            <div class="pf-stat-card">
-              <div class="pf-stat-icon" style="background:#fef3c7;color:#d97706;">
-                <i class="bi bi-award-fill"></i>
+              <div class="pf-field-item">
+                <div class="pf-field-lbl">
+                  <span><i class="bi bi-upc-scan"></i> RSBSA / Farmer ID</span>
+                  <?php if(!empty($profileData['gov_id'])): ?>
+                  <button type="button" class="pf-copy-btn" onclick="copyTagId('<?= htmlspecialchars(addslashes($profileData['gov_id'])) ?>', this)">Copy</button>
+                  <?php endif; ?>
+                </div>
+                <div class="pf-field-val"><?= !empty($profileData['gov_id']) ? htmlspecialchars($profileData['gov_id']) : '<span style="color:var(--sub);font-weight:400;">Not specified</span>' ?></div>
               </div>
-              <div class="pf-stat-val">
-                <?= count(array_filter($farmsData, function($f){ return $f['status'] === 'Approved'; })) ?>
+
+              <div class="pf-field-item">
+                <div class="pf-field-lbl">
+                  <span><i class="bi bi-envelope-fill"></i> Email Address</span>
+                  <?php if(!empty($profileData['email'])): ?>
+                  <button type="button" class="pf-copy-btn" onclick="copyTagId('<?= htmlspecialchars(addslashes($profileData['email'])) ?>', this)">Copy</button>
+                  <?php endif; ?>
+                </div>
+                <div class="pf-field-val"><?= !empty($profileData['email']) ? htmlspecialchars($profileData['email']) : '<span style="color:var(--sub);font-weight:400;">No email recorded</span>' ?></div>
               </div>
-              <div class="pf-stat-lbl">GAHP Certs</div>
-            </div>
 
-            <div class="pf-stat-card">
-              <div class="pf-stat-icon" style="background:#fdf2f8;color:#db2777;">
-                <i class="bi bi-exclamation-octagon-fill"></i>
+              <div class="pf-field-item">
+                <div class="pf-field-lbl">
+                  <span><i class="bi bi-telephone-fill"></i> Mobile Contact</span>
+                  <?php if(!empty($profileData['mobile'])): ?>
+                  <button type="button" class="pf-copy-btn" onclick="copyTagId('<?= htmlspecialchars(addslashes($profileData['mobile'])) ?>', this)">Copy</button>
+                  <?php endif; ?>
+                </div>
+                <div class="pf-field-val"><?= !empty($profileData['mobile']) ? htmlspecialchars($profileData['mobile']) : '<span style="color:var(--sub);font-weight:400;">No phone recorded</span>' ?></div>
               </div>
-              <div class="pf-stat-val"><?= count($incidentsData) ?></div>
-              <div class="pf-stat-lbl">Reports Filed</div>
-            </div>
-          </div>
 
-          <!-- 3. Navigation Tabs -->
-          <div class="pf-tabs-nav" id="pfTabsNav">
-            <button type="button" class="pf-tab-btn active" data-tab="details" onclick="switchProfileTab('details')">
-              <i class="bi bi-person-lines-fill"></i> Personal Details
-            </button>
-            <button type="button" class="pf-tab-btn" data-tab="farms" onclick="switchProfileTab('farms')">
-              <i class="bi bi-building"></i> Farm Holdings (<?= count($farmsData) ?>)
-            </button>
-            <button type="button" class="pf-tab-btn" data-tab="security" onclick="switchProfileTab('security')">
-              <i class="bi bi-shield-check"></i> Account &amp; Security
-            </button>
-            <button type="button" class="pf-tab-btn" data-tab="activity" onclick="switchProfileTab('activity')">
-              <i class="bi bi-clock-history"></i> Recent Activity
-            </button>
-          </div>
-
-          <!-- 4. Tab Panels -->
-          <!-- Tab A: Personal Details -->
-          <div id="pfTabDetails" class="pf-tab-content active">
-            <div class="pf-panel-card">
-              <div class="pf-panel-hdr">
-                <div class="pf-panel-title">
-                  <i class="bi bi-person-bounding-box" style="color:#059669;"></i> Identification &amp; Contact
-                </div>
-                <button type="button" class="btn btn-secondary" style="font-size:0.75rem;padding:0.35rem 0.75rem;" onclick="openModal('profileModal')">
-                  <i class="bi bi-pencil"></i> Edit
-                </button>
+              <div class="pf-field-item">
+                <div class="pf-field-lbl"><i class="bi bi-gender-ambiguous"></i> Gender</div>
+                <div class="pf-field-val"><?= !empty($profileData['gender']) ? htmlspecialchars(ucfirst($profileData['gender'])) : '<span style="color:var(--sub);font-weight:400;">—</span>' ?></div>
               </div>
-              <div class="pf-grid-fields">
-                <div class="pf-field-item">
-                  <div class="pf-field-lbl"><i class="bi bi-person-fill"></i> Full Name</div>
-                  <div class="pf-field-val"><?= htmlspecialchars($firstName.' '.$lastName) ?></div>
-                </div>
 
-                <div class="pf-field-item">
-                  <div class="pf-field-lbl">
-                    <span><i class="bi bi-upc-scan"></i> RSBSA / Farmer ID</span>
-                    <?php if(!empty($profileData['gov_id'])): ?>
-                    <button type="button" class="pf-copy-btn" onclick="copyTagId('<?= htmlspecialchars(addslashes($profileData['gov_id'])) ?>', this)">Copy</button>
-                    <?php endif; ?>
-                  </div>
-                  <div class="pf-field-val"><?= !empty($profileData['gov_id']) ? htmlspecialchars($profileData['gov_id']) : '<span style="color:var(--sub);font-weight:400;">Not specified</span>' ?></div>
-                </div>
-
-                <div class="pf-field-item">
-                  <div class="pf-field-lbl">
-                    <span><i class="bi bi-envelope-fill"></i> Email Address</span>
-                    <?php if(!empty($profileData['email'])): ?>
-                    <button type="button" class="pf-copy-btn" onclick="copyTagId('<?= htmlspecialchars(addslashes($profileData['email'])) ?>', this)">Copy</button>
-                    <?php endif; ?>
-                  </div>
-                  <div class="pf-field-val"><?= !empty($profileData['email']) ? htmlspecialchars($profileData['email']) : '<span style="color:var(--sub);font-weight:400;">No email recorded</span>' ?></div>
-                </div>
-
-                <div class="pf-field-item">
-                  <div class="pf-field-lbl">
-                    <span><i class="bi bi-telephone-fill"></i> Mobile Contact</span>
-                    <?php if(!empty($profileData['mobile'])): ?>
-                    <button type="button" class="pf-copy-btn" onclick="copyTagId('<?= htmlspecialchars(addslashes($profileData['mobile'])) ?>', this)">Copy</button>
-                    <?php endif; ?>
-                  </div>
-                  <div class="pf-field-val"><?= !empty($profileData['mobile']) ? htmlspecialchars($profileData['mobile']) : '<span style="color:var(--sub);font-weight:400;">No phone recorded</span>' ?></div>
-                </div>
-
-                <div class="pf-field-item">
-                  <div class="pf-field-lbl"><i class="bi bi-gender-ambiguous"></i> Gender</div>
-                  <div class="pf-field-val"><?= !empty($profileData['gender']) ? htmlspecialchars(ucfirst($profileData['gender'])) : '<span style="color:var(--sub);font-weight:400;">—</span>' ?></div>
-                </div>
-
-                <div class="pf-field-item">
-                  <div class="pf-field-lbl"><i class="bi bi-calendar-event"></i> Date of Birth</div>
-                  <div class="pf-field-val"><?= !empty($profileData['dob']) ? date('M d, Y', strtotime($profileData['dob'])) : '<span style="color:var(--sub);font-weight:400;">—</span>' ?></div>
-                </div>
-              </div>
-            </div>
-
-            <div class="pf-panel-card">
-              <div class="pf-panel-hdr">
-                <div class="pf-panel-title">
-                  <i class="bi bi-geo-alt-fill" style="color:#3b82f6;"></i> Residence &amp; Emergency Contact
-                </div>
-              </div>
-              <div class="pf-grid-fields">
-                <div class="pf-field-item" style="grid-column: 1 / -1;">
-                  <div class="pf-field-lbl"><i class="bi bi-pin-map-fill"></i> Permanent / Registered Address</div>
-                  <div class="pf-field-val"><?= !empty($profileData['address']) ? nl2br(htmlspecialchars($profileData['address'])) : '<span style="color:var(--sub);font-weight:400;">No address details registered</span>' ?></div>
-                </div>
-
-                <div class="pf-field-item" style="grid-column: 1 / -1;">
-                  <div class="pf-field-lbl"><i class="bi bi-heart-pulse-fill" style="color:var(--danger);"></i> Emergency Contact Person &amp; Mobile</div>
-                  <div class="pf-field-val"><?= !empty($profileData['emergency_contact']) ? htmlspecialchars($profileData['emergency_contact']) : '<span style="color:var(--sub);font-weight:400;">None registered</span>' ?></div>
-                </div>
+              <div class="pf-field-item">
+                <div class="pf-field-lbl"><i class="bi bi-calendar-event"></i> Date of Birth</div>
+                <div class="pf-field-val"><?= !empty($profileData['dob']) ? date('M d, Y', strtotime($profileData['dob'])) : '<span style="color:var(--sub);font-weight:400;">—</span>' ?></div>
               </div>
             </div>
           </div>
 
-          <!-- Tab B: Farm Holdings -->
-          <div id="pfTabFarms" class="pf-tab-content">
-            <div class="pf-panel-card">
-              <div class="pf-panel-hdr">
-                <div class="pf-panel-title">
-                  <i class="bi bi-houses-fill" style="color:#059669;"></i> Registered Agricultural Holdings
-                </div>
-                <button type="button" class="btn btn-primary" style="font-size:0.75rem;padding:0.35rem 0.75rem;" onclick="navTo('farm-reg')">
-                  <i class="bi bi-plus-lg"></i> Register New Farm
-                </button>
+          <!-- 3. Residence & Emergency Contact -->
+          <div class="pf-panel-card">
+            <div class="pf-panel-hdr">
+              <div class="pf-panel-title">
+                <i class="bi bi-geo-alt-fill" style="color:#3b82f6;"></i> Residence &amp; Emergency Contact
+              </div>
+            </div>
+            <div class="pf-grid-fields">
+              <div class="pf-field-item" style="grid-column: 1 / -1;">
+                <div class="pf-field-lbl"><i class="bi bi-pin-map-fill"></i> Permanent / Registered Address</div>
+                <div class="pf-field-val"><?= !empty($profileData['address']) ? nl2br(htmlspecialchars($profileData['address'])) : '<span style="color:var(--sub);font-weight:400;">No address details registered</span>' ?></div>
               </div>
 
-              <?php if(empty($farmsData)): ?>
-              <div style="text-align:center;padding:2rem 1rem;">
-                <div style="font-size:2rem;color:var(--sub);margin-bottom:0.5rem;"><i class="bi bi-house-x"></i></div>
-                <p style="color:var(--sub);font-size:0.85rem;">No registered farms on this profile.</p>
-                <button type="button" class="btn btn-primary" style="margin-top:0.75rem;" onclick="navTo('farm-reg')">Register Farm Now</button>
+              <div class="pf-field-item" style="grid-column: 1 / -1;">
+                <div class="pf-field-lbl"><i class="bi bi-heart-pulse-fill" style="color:var(--danger);"></i> Emergency Contact Person &amp; Mobile</div>
+                <div class="pf-field-val"><?= !empty($profileData['emergency_contact']) ? htmlspecialchars($profileData['emergency_contact']) : '<span style="color:var(--sub);font-weight:400;">None registered</span>' ?></div>
               </div>
-              <?php else: ?>
-              <div style="display:flex;flex-direction:column;gap:0.75rem;">
-                <?php foreach($farmsData as $farm): 
-                  $fLv = $livestockByFarm[$farm['id']]['livestock'] ?? [];
-                  $fTotalHead = array_sum(array_column($fLv, 'qty'));
-                ?>
-                <div style="border:1.5px solid var(--border);border-radius:14px;padding:1rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;background:#fafafa;">
-                  <div style="display:flex;align-items:center;gap:0.85rem;">
-                    <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#064e3b,#10b981);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:1.1rem;">
-                      <?= strtoupper(substr($farm['name'],0,1)) ?>
-                    </div>
-                    <div>
-                      <div style="font-weight:800;color:var(--txt);font-size:0.95rem;"><?= htmlspecialchars($farm['name']) ?></div>
-                      <div style="font-size:0.72rem;color:var(--sub);display:flex;gap:6px;align-items:center;margin-top:2px;">
-                        <span class="badge <?= statusBadge($farm['status']) ?>"><?= $farm['status'] ?></span>
-                        <span>&bull; <?= htmlspecialchars($farm['type']) ?></span>
-                        <?php if(!empty($farm['address'])): ?>
-                        <span>&bull; <?= htmlspecialchars($farm['address']) ?></span>
-                        <?php endif; ?>
-                      </div>
-                    </div>
-                  </div>
-                  <div style="display:flex;align-items:center;gap:0.85rem;">
-                    <div style="text-align:right;">
-                      <div style="font-size:1.15rem;font-weight:800;color:#059669;"><?= number_format($fTotalHead) ?></div>
-                      <div style="font-size:0.65rem;color:var(--sub);font-weight:700;text-transform:uppercase;">Livestock Heads</div>
-                    </div>
-                    <button type="button" class="btn btn-secondary" style="font-size:0.78rem;padding:0.4rem 0.8rem;" onclick="navTo('livestock')">
-                      View Herd <i class="bi bi-arrow-right"></i>
-                    </button>
-                  </div>
-                </div>
-                <?php endforeach; ?>
-              </div>
-              <?php endif; ?>
             </div>
           </div>
 
-          <!-- Tab C: Security -->
-          <div id="pfTabSecurity" class="pf-tab-content">
-            <div class="pf-panel-card">
-              <div class="pf-panel-hdr">
-                <div class="pf-panel-title">
-                  <i class="bi bi-shield-lock-fill" style="color:#059669;"></i> Change Account Password
-                </div>
+          <!-- 4. Account Security & Password -->
+          <div class="pf-panel-card">
+            <div class="pf-panel-hdr">
+              <div class="pf-panel-title">
+                <i class="bi bi-shield-lock-fill" style="color:#059669;"></i> Account Password &amp; Credentials
               </div>
-              <form id="farmerPwForm" autocomplete="off" style="max-width:520px;">
-                <input type="hidden" name="action" value="change_password">
-                <div class="form-group" style="margin-bottom:1rem;">
-                  <label class="form-label">Current Password *</label>
-                  <input type="password" class="form-input" name="current_password" required placeholder="Enter current password">
-                </div>
-                <div class="form-group" style="margin-bottom:1rem;">
-                  <label class="form-label">New Password * (minimum 6 characters)</label>
-                  <input type="password" class="form-input" name="new_password" required minlength="6" placeholder="Enter new strong password">
-                </div>
-                <div class="form-group" style="margin-bottom:1.25rem;">
-                  <label class="form-label">Confirm New Password *</label>
-                  <input type="password" class="form-input" name="confirm_password" required minlength="6" placeholder="Repeat new password">
-                </div>
-                <button type="submit" class="btn btn-primary" id="btnUpdatePw">
-                  <i class="bi bi-key-fill"></i> Update Password
-                </button>
-              </form>
             </div>
+            <form id="farmerPwForm" autocomplete="off" style="max-width:520px;margin-bottom:1.5rem;">
+              <input type="hidden" name="action" value="change_password">
+              <div class="form-group" style="margin-bottom:1rem;">
+                <label class="form-label">Current Password *</label>
+                <input type="password" class="form-input" name="current_password" required placeholder="Enter current password">
+              </div>
+              <div class="form-group" style="margin-bottom:1rem;">
+                <label class="form-label">New Password * (minimum 6 characters)</label>
+                <input type="password" class="form-input" name="new_password" required minlength="6" placeholder="Enter new strong password">
+              </div>
+              <div class="form-group" style="margin-bottom:1.25rem;">
+                <label class="form-label">Confirm New Password *</label>
+                <input type="password" class="form-input" name="confirm_password" required minlength="6" placeholder="Repeat new password">
+              </div>
+              <button type="submit" class="btn btn-primary" id="btnUpdatePw">
+                <i class="bi bi-key-fill"></i> Update Password
+              </button>
+            </form>
 
-            <div class="pf-panel-card">
-              <div class="pf-panel-hdr">
-                <div class="pf-panel-title">
-                  <i class="bi bi-fingerprint" style="color:#3b82f6;"></i> Session &amp; System Metadata
-                </div>
+            <div style="border-top:1px solid var(--border);padding-top:1.25rem;">
+              <div style="font-weight:800;color:var(--txt);font-size:0.9rem;margin-bottom:0.75rem;display:flex;align-items:center;gap:6px;">
+                <i class="bi bi-fingerprint" style="color:#3b82f6;"></i> Account Metadata
               </div>
               <div class="pf-grid-fields">
                 <div class="pf-field-item">
@@ -4682,47 +4564,10 @@ body:not(.sidebar-autohide) .btn-drawer-pin {
                   <div class="pf-field-val"><?= !empty($profileData['createdAt']) ? date('M d, Y h:i A', strtotime($profileData['createdAt'])) : 'Active' ?></div>
                 </div>
                 <div class="pf-field-item">
-                  <div class="pf-field-lbl">Last Updated</div>
+                  <div class="pf-field-lbl">Last Profile Update</div>
                   <div class="pf-field-val"><?= !empty($profileData['updatedAt']) ? date('M d, Y h:i A', strtotime($profileData['updatedAt'])) : 'Active' ?></div>
                 </div>
               </div>
-            </div>
-          </div>
-
-          <!-- Tab D: Activity -->
-          <div id="pfTabActivity" class="pf-tab-content">
-            <div class="pf-panel-card">
-              <div class="pf-panel-hdr">
-                <div class="pf-panel-title">
-                  <i class="bi bi-bell-fill" style="color:#059669;"></i> Recent Incident Reports &amp; Notifications
-                </div>
-                <button type="button" class="btn btn-secondary" style="font-size:0.75rem;padding:0.35rem 0.75rem;" onclick="navTo('incident')">
-                  <i class="bi bi-plus-circle"></i> New Report
-                </button>
-              </div>
-
-              <?php if(empty($incidentsData)): ?>
-              <div style="text-align:center;padding:2rem 1rem;color:var(--sub);">
-                <i class="bi bi-shield-check" style="font-size:2rem;color:#10b981;display:block;margin-bottom:0.5rem;"></i>
-                No incidents reported. All clear!
-              </div>
-              <?php else: ?>
-              <div style="display:flex;flex-direction:column;gap:0.6rem;">
-                <?php foreach(array_slice($incidentsData, 0, 5) as $inc): ?>
-                <div style="border:1px solid var(--border);border-radius:12px;padding:0.75rem 1rem;background:#f8fafc;display:flex;align-items:center;justify-content:space-between;gap:0.75rem;">
-                  <div>
-                    <div style="font-weight:700;font-size:0.86rem;color:var(--txt);"><?= htmlspecialchars($inc['title']) ?></div>
-                    <div style="font-size:0.72rem;color:var(--sub);margin-top:2px;">
-                      <span><?= htmlspecialchars($inc['type']) ?></span> &bull; 
-                      <span><?= htmlspecialchars($inc['farmName']) ?></span> &bull; 
-                      <span><?= date('M d, Y', strtotime($inc['createdAt'])) ?></span>
-                    </div>
-                  </div>
-                  <span class="badge <?= statusBadge($inc['status']) ?>"><?= $inc['status'] ?></span>
-                </div>
-                <?php endforeach; ?>
-              </div>
-              <?php endif; ?>
             </div>
           </div>
 
