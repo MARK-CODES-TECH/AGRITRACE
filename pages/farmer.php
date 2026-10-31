@@ -5635,6 +5635,9 @@ let peerConn=null, localStream=null, callType='voice', callTargetId=null, callPo
 const RTC_CONFIG={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]};
 
 async function getMediaStream(type){
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    throw new Error('SECURE_CONTEXT_REQUIRED');
+  }
   // Try ideal constraints first, fall back gracefully
   const constraints = type==='video'
     ? {audio:true,video:{facingMode:'user',width:{ideal:640},height:{ideal:480}}}
@@ -5673,7 +5676,7 @@ async function initiateCall(type){
   try{
     localStream=await getMediaStream(type);
   }catch(err){
-    const msgs={PERMISSION_DENIED:'Microphone/camera access denied. Please allow permissions in your browser settings.',NO_DEVICE:'No microphone/camera found on this device.',DEVICE_BUSY:'Microphone/camera is being used by another app. Close other apps and try again.'};
+    const msgs={SECURE_CONTEXT_REQUIRED:'Microphone and camera access requires a secure connection (HTTPS or localhost).',PERMISSION_DENIED:'Microphone/camera access denied. Please allow permissions in your browser settings.',NO_DEVICE:'No microphone/camera found on this device.',DEVICE_BUSY:'Microphone/camera is being used by another app. Close other apps and try again.'};
     showCallPermError(msgs[err.message]||'Could not access media device: '+err.message);
     return;
   }
@@ -5701,7 +5704,7 @@ async function answerCall(){
   try{
     localStream=await getMediaStream(callType);
   }catch(err){
-    const msgs={PERMISSION_DENIED:'Microphone/camera access denied. Please allow permissions in your browser settings.',NO_DEVICE:'No microphone/camera found on this device.',DEVICE_BUSY:'Microphone/camera is being used by another app.'};
+    const msgs={SECURE_CONTEXT_REQUIRED:'Microphone and camera access requires a secure connection (HTTPS or localhost).',PERMISSION_DENIED:'Microphone/camera access denied. Please allow permissions in your browser settings.',NO_DEVICE:'No microphone/camera found on this device.',DEVICE_BUSY:'Microphone/camera is being used by another app.'};
     showCallPermError(msgs[err.message]||'Could not access media: '+err.message);
     sendSignal(incomingCallerId,{type:'reject'}).catch(()=>{});
     return;
