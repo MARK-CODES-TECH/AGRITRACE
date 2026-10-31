@@ -2395,6 +2395,9 @@ textarea.form-input{resize:none;line-height:1.5;}
    MODERN SAAS PROFILE CARD STYLES
    ═══════════════════════════════════════════════════════════════════════════ */
 #pg-profile {
+  display: none;
+}
+#pg-profile.active {
   min-height: 80vh;
   display: flex;
   align-items: flex-start;

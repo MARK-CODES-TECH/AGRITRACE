@@ -928,6 +928,9 @@ $archived_reports = $pdo->query("
        MODERN SAAS PROFILE CARD STYLES
        ═══════════════════════════════════════════════════════════════════════ */
     #sec-profile {
+      display: none;
+    }
+    #sec-profile.active {
       min-height: 80vh;
       display: flex;
       align-items: flex-start;
@@ -1439,10 +1442,10 @@ $archived_reports = $pdo->query("
     <div class="nav-item" onclick="navTo('reports', this)"><i class="bi bi-bar-chart-line-fill"></i><span>Analytics</span></div>
     <div class="nav-divider"></div>
     <div class="nav-item" onclick="navTo('profile', this)"><i class="bi bi-person-circle"></i><span>My Profile</span></div>
-    <div class="nav-item logout" onclick="window.location.href='index.php'"><i class="bi bi-power"></i><span>Logout</span></div>
+    <div class="nav-item logout" onclick="window.location.href='logout.php'"><i class="bi bi-power"></i><span>Logout</span></div>
   </nav>
   <div class="sidebar-footer">
-    <div class="user-box">
+    <div class="user-box" style="cursor:pointer;" onclick="navTo('profile', document.querySelector('.nav-item[onclick*=\'profile\']'))" title="View Profile">
       <div class="user-avatar"><?= htmlspecialchars($user_initial) ?></div>
       <div>
         <div class="user-name"><?= htmlspecialchars($user_fullname) ?></div>
