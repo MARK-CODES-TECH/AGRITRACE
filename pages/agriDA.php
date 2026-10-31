@@ -168,6 +168,8 @@ if (($_SERVER["REQUEST_METHOD"] ?? "GET") === "POST" && isset($_POST['action']))
             }
             $stmt = $pdo->prepare("UPDATE users SET firstName=?, lastName=?, mobile=?, updatedAt=CURRENT_TIMESTAMP WHERE id=?");
             $stmt->execute([$_POST['firstName'], $_POST['lastName'], $_POST['mobile'] ?? null, $uid]);
+            $_SESSION['firstName'] = $_POST['firstName'];
+            $_SESSION['lastName']  = $_POST['lastName'];
             $stmt = $pdo->prepare("INSERT INTO officer_profiles (user_id,gov_id,department,position,office,assigned_region,municipality,province,profile_pix) VALUES (?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE gov_id=VALUES(gov_id),department=VALUES(department),position=VALUES(position),office=VALUES(office),assigned_region=VALUES(assigned_region),municipality=VALUES(municipality),province=VALUES(province),profile_pix=VALUES(profile_pix),updated_at=CURRENT_TIMESTAMP");
             $stmt->execute([$uid,$_POST['gov_id']??null,$_POST['department']??null,$_POST['position']??null,$_POST['office']??null,$_POST['assigned_region']??null,$_POST['municipality']??null,$_POST['province']??null,$profile_pic_path]);
             if (!empty($_POST['new_password'])) {
@@ -176,6 +178,25 @@ if (($_SERVER["REQUEST_METHOD"] ?? "GET") === "POST" && isset($_POST['action']))
             }
             $pdo->commit();
             echo json_encode(['success' => true, 'message' => 'Profile updated successfully!']);
+            exit;
+        } elseif ($_POST['action'] === 'change_officer_password') {
+            $uid = $user_id;
+            $cur = $_POST['current_password'] ?? '';
+            $new = $_POST['new_password'] ?? '';
+            $conf = $_POST['confirm_password'] ?? '';
+            if (strlen($new) < 6) throw new Exception('New password must be at least 6 characters.');
+            if ($new !== $conf) throw new Exception('Passwords do not match.');
+            $chk = $pdo->prepare("SELECT password FROM users WHERE id=?");
+            $chk->execute([$uid]);
+            $currHash = $chk->fetchColumn();
+            if ($currHash && !password_verify($cur, $currHash)) {
+                throw new Exception('Current password is incorrect.');
+            }
+            $h = password_hash($new, PASSWORD_DEFAULT);
+            $pdo->prepare("UPDATE users SET password=? WHERE id=?")->execute([$h, $uid]);
+            $pdo->commit();
+            echo json_encode(['success' => true, 'message' => 'Password updated successfully!']);
+            exit;
         }
     } catch (Exception $e) {
         $pdo->rollBack();
@@ -212,6 +233,9 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([$user_id]);
 $user_profile = $stmt->fetch();
+if (!$user_profile) {
+    $user_profile = ['firstName' => 'Official', 'lastName' => 'User', 'email' => '', 'mobile' => ''];
+}
 $user_profile['mobile'] = $user_profile['mobile'] ?? '';
 $user_name    = $user_profile ? ($user_profile['firstName'] . ' ' . substr($user_profile['lastName'], 0, 1)) : 'G';
 $user_initial = strtoupper(substr($user_name, 0, 1));
@@ -900,21 +924,374 @@ $archived_reports = $pdo->query("
     .at-card .at-val { font-family: 'DM Sans', sans-serif; font-size: 1.9rem; font-weight: 800; color: var(--c-brand-dark); line-height: 1; letter-spacing: -1px; }
     .at-card .at-lbl { font-size: 0.72rem; color: var(--c-text-sub); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
 
-    /* PROFILE */
-    .profile-container { max-width: 680px; margin: 0 auto; }
-    .profile-card { background: #fff; border-radius: 18px; box-shadow: 0 4px 24px rgba(0,0,0,0.07); overflow: hidden; margin-bottom: 20px; border: 1px solid var(--c-slate-100); }
-    .profile-header { background: linear-gradient(135deg, var(--c-brand-mid), var(--c-brand-dark)); color: white; padding: 36px 28px 28px; text-align: center; }
-    .avatar-circle { width: 90px; height: 90px; background: rgba(255,255,255,0.18); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.2rem; font-weight: 800; margin: 0 auto 14px; border: 3px solid rgba(255,255,255,0.3); overflow: hidden; }
-    .profile-info { padding: 26px; }
-    .info-section { margin-bottom: 24px; }
-    .info-section h3 { font-size: 0.95rem; color: var(--c-brand-dark); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; font-weight: 700; }
-    .info-section h3 i { color: var(--c-brand-accent); }
-    .info-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--c-slate-100); }
-    .info-label { color: var(--c-text-sub); font-weight: 600; font-size: 0.87rem; }
-    .info-value { font-weight: 600; color: var(--c-text-main); text-align: right; font-size: 0.87rem; }
-    .profile-actions { padding: 0 26px 26px; text-align: center; }
-    .btn-edit { background: linear-gradient(135deg, var(--c-brand-accent), #059669); color: white; border: none; padding: 12px 26px; border-radius: 12px; font-weight: 700; font-size: 0.92rem; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s; font-family: inherit; box-shadow: 0 4px 14px rgba(16,185,129,0.3); }
-    .btn-edit:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(16,185,129,0.4); }
+    /* ═══════════════════════════════════════════════════════════════════════
+       MODERN AGRICULTURE OFFICIAL PROFILE STYLES
+       ═══════════════════════════════════════════════════════════════════════ */
+    .da-pf-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+    .da-pf-hero {
+      background: linear-gradient(135deg, #064e3b 0%, #065f46 50%, #047857 100%);
+      border-radius: 22px;
+      padding: 1.75rem 1.6rem;
+      color: #fff;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 12px 32px -8px rgba(6, 78, 59, 0.35);
+    }
+    .da-pf-hero::before {
+      content: '';
+      position: absolute;
+      top: -70px;
+      right: -70px;
+      width: 240px;
+      height: 240px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,255,255,0.16) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .da-pf-hero-body {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      position: relative;
+      z-index: 1;
+    }
+    @media (min-width: 768px) {
+      .da-pf-hero-body {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+      }
+    }
+    .da-pf-user-wrap {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+    }
+    .da-pf-avatar-container {
+      position: relative;
+      flex-shrink: 0;
+    }
+    .da-pf-avatar {
+      width: 92px;
+      height: 92px;
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.16);
+      backdrop-filter: blur(8px);
+      border: 3px solid rgba(255, 255, 255, 0.38);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: #fff;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    }
+    .da-pf-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .da-pf-avatar-btn {
+      position: absolute;
+      bottom: -4px;
+      right: -4px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #fff;
+      color: #064e3b;
+      border: 2px solid #047857;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 0.85rem;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+      transition: transform 0.15s, background 0.15s;
+    }
+    .da-pf-avatar-btn:hover {
+      transform: scale(1.1);
+      background: #ecfdf5;
+    }
+    .da-pf-meta-name {
+      font-size: 1.55rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin: 0 0 0.35rem;
+      line-height: 1.2;
+      font-family: 'Syne', sans-serif;
+    }
+    .da-pf-tags-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .da-pf-tag {
+      background: rgba(255, 255, 255, 0.18);
+      backdrop-filter: blur(6px);
+      padding: 3px 10px;
+      border-radius: 9999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .da-pf-verified {
+      background: #10b981;
+      color: #fff;
+      padding: 3px 9px;
+      border-radius: 9999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+    }
+    .da-pf-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .da-pf-btn-pri {
+      background: #fff;
+      color: #064e3b;
+      border: none;
+      padding: 0.65rem 1.15rem;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      transition: all 0.2s;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      font-family: inherit;
+    }
+    .da-pf-btn-pri:hover {
+      transform: translateY(-2px);
+      background: #f0fdf4;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+    }
+    .da-pf-btn-glass {
+      background: rgba(255, 255, 255, 0.16);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      padding: 0.65rem 1rem;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+      font-family: inherit;
+      backdrop-filter: blur(6px);
+    }
+    .da-pf-btn-glass:hover {
+      background: rgba(255, 255, 255, 0.26);
+    }
+
+    /* KPI Highlights */
+    .da-pf-stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+    }
+    @media (min-width: 900px) {
+      .da-pf-stats {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+      }
+    }
+    .da-pf-stat-card {
+      background: #fff;
+      border: 1px solid var(--c-slate-100);
+      border-radius: 16px;
+      padding: 1rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+      transition: transform 0.2s;
+    }
+    .da-pf-stat-card:hover {
+      transform: translateY(-2px);
+    }
+    .da-pf-stat-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.15rem;
+      margin-bottom: 0.5rem;
+    }
+    .da-pf-stat-val {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: var(--c-text-main);
+      line-height: 1.1;
+      margin-bottom: 2px;
+    }
+    .da-pf-stat-lbl {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--c-text-sub);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    /* Tabs */
+    .da-pf-tabs {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      border-bottom: 2px solid var(--c-slate-200);
+      margin-bottom: 0.25rem;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .da-pf-tabs::-webkit-scrollbar { display: none; }
+    .da-pf-tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2.5px solid transparent;
+      padding: 0.75rem 1.1rem;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--c-text-sub);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: -2px;
+      transition: all 0.18s;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+    .da-pf-tab-btn:hover { color: var(--c-text-main); }
+    .da-pf-tab-btn.active {
+      color: #064e3b;
+      border-bottom-color: #10b981;
+    }
+
+    .da-pf-panel {
+      display: none;
+      animation: daFadeIn 0.2s ease;
+    }
+    .da-pf-panel.active { display: block; }
+    @keyframes daFadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .da-pf-card {
+      background: #fff;
+      border: 1px solid var(--c-slate-100);
+      border-radius: 18px;
+      padding: 1.35rem 1.25rem;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+      margin-bottom: 1rem;
+    }
+    .da-pf-card-hdr {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.15rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--c-slate-100);
+    }
+    .da-pf-card-title {
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--c-text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .da-pf-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.85rem;
+    }
+    @media (min-width: 640px) {
+      .da-pf-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    .da-pf-field {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 0.85rem 1rem;
+      position: relative;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .da-pf-field:hover {
+      background: #fff;
+      border-color: #cbd5e1;
+    }
+    .da-pf-field-lbl {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: var(--c-text-sub);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .da-pf-field-val {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--c-text-main);
+      word-break: break-word;
+    }
+    .da-pf-copy {
+      background: none;
+      border: none;
+      color: var(--c-text-sub);
+      cursor: pointer;
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+    }
+    .da-pf-copy:hover {
+      color: #10b981;
+      background: #ecfdf5;
+    }
+    .da-preview-avatar {
+      width: 72px;
+      height: 72px;
+      border-radius: 18px;
+      background: #f1f5f9;
+      border: 2px dashed #cbd5e1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      font-size: 1.5rem;
+      color: var(--c-text-sub);
+      flex-shrink: 0;
+    }
+    .da-preview-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
 
     /* MODAL */
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; visibility: hidden; transition: all 0.3s; }
@@ -1845,120 +2222,387 @@ $archived_reports = $pdo->query("
 
   <!-- ===== PROFILE ===== -->
   <section id="sec-profile" class="section">
-    <div class="page-heading">
-      <h1>My Profile</h1>
-      <p>Manage your official account and assignment details.</p>
-    </div>
-    <div class="profile-container">
-      <div class="profile-card">
-        <div class="profile-header">
-          <div class="avatar-circle">
-            <?php if (!empty($user_profile['profile_pix'])): ?>
-              <img src="<?= htmlspecialchars($user_profile['profile_pix']) ?>" alt="Profile" style="width:100%;height:100%;object-fit:cover;">
-            <?php else: ?>
-              <?= strtoupper(substr($user_profile['firstName'] ?? 'U', 0, 1)) ?>
-            <?php endif; ?>
+    <div class="da-pf-container">
+      
+      <!-- 1. Hero Header Banner -->
+      <div class="da-pf-hero">
+        <div class="da-pf-hero-body">
+          <div class="da-pf-user-wrap">
+            <div class="da-pf-avatar-container">
+              <div class="da-pf-avatar" id="daAvatarDisplay">
+                <?php if (!empty($user_profile['profile_pix']) && file_exists($user_profile['profile_pix'])): ?>
+                  <img src="<?= htmlspecialchars($user_profile['profile_pix']) ?>" alt="Officer Profile">
+                <?php else: ?>
+                  <?= strtoupper(substr($user_profile['firstName'] ?? 'U', 0, 1) . substr($user_profile['lastName'] ?? '', 0, 1)) ?>
+                <?php endif; ?>
+              </div>
+              <button type="button" class="da-pf-avatar-btn" onclick="openEditModal()" title="Update Profile Photo">
+                <i class="bi bi-camera-fill"></i>
+              </button>
+            </div>
+            <div>
+              <h1 class="da-pf-meta-name"><?= htmlspecialchars(($user_profile['firstName']??'').' '.($user_profile['lastName']??'')) ?></h1>
+              <div class="da-pf-tags-row">
+                <span class="da-pf-tag"><i class="bi bi-shield-shaded"></i> <?= htmlspecialchars($user_role) ?></span>
+                <span class="da-pf-verified"><i class="bi bi-patch-check-fill"></i> DA Verified</span>
+                <?php if(!empty($user_profile['gov_id'])): ?>
+                <span class="da-pf-tag"><i class="bi bi-upc-scan"></i> ID: <?= htmlspecialchars($user_profile['gov_id']) ?></span>
+                <?php endif; ?>
+                <?php if(!empty($user_profile['position'])): ?>
+                <span class="da-pf-tag"><i class="bi bi-briefcase"></i> <?= htmlspecialchars($user_profile['position']) ?></span>
+                <?php endif; ?>
+              </div>
+            </div>
           </div>
-          <h2 style="margin:0;font-family:'Syne',sans-serif;font-size:1.4rem;"><?= htmlspecialchars(($user_profile['firstName']??'').' '.($user_profile['lastName']??'')) ?></h2>
-          <p style="opacity:0.8;margin:4px 0 0;font-size:0.88rem;"><?= htmlspecialchars($user_role) ?></p>
-        </div>
-        <div class="profile-info">
-          <div class="info-section">
-            <h3><i class="bi bi-person-fill"></i> Personal Information</h3>
-            <div class="info-item"><span class="info-label">Email</span><span class="info-value"><?= htmlspecialchars($user_profile['email']??'&mdash;') ?></span></div>
-            <div class="info-item"><span class="info-label">Mobile</span><span class="info-value"><?= htmlspecialchars($user_profile['mobile']??'&mdash;') ?></span></div>
+          <div class="da-pf-actions">
+            <button type="button" class="da-pf-btn-pri" onclick="openEditModal()">
+              <i class="bi bi-pencil-square"></i> Edit Credentials
+            </button>
+            <button type="button" class="da-pf-btn-glass" onclick="switchDaTab('security')">
+              <i class="bi bi-shield-lock"></i> Security
+            </button>
+            <button type="button" class="da-pf-btn-glass" onclick="window.print()">
+              <i class="bi bi-printer"></i> Print ID
+            </button>
           </div>
-          <div class="info-section">
-            <h3><i class="bi bi-briefcase-fill"></i> Work Information</h3>
-            <div class="info-item"><span class="info-label">Gov't ID</span><span class="info-value"><?= htmlspecialchars($user_profile['gov_id']??'&mdash;') ?></span></div>
-            <div class="info-item"><span class="info-label">Department</span><span class="info-value"><?= htmlspecialchars($user_profile['department']??'&mdash;') ?></span></div>
-            <div class="info-item"><span class="info-label">Position</span><span class="info-value"><?= htmlspecialchars($user_profile['position']??'&mdash;') ?></span></div>
-            <div class="info-item"><span class="info-label">Office</span><span class="info-value"><?= htmlspecialchars($user_profile['office']??'&mdash;') ?></span></div>
-          </div>
-          <div class="info-section">
-            <h3><i class="bi bi-geo-alt-fill"></i> Assignment</h3>
-            <div class="info-item"><span class="info-label">Region</span><span class="info-value"><?= htmlspecialchars($user_profile['assigned_region']??'&mdash;') ?></span></div>
-            <div class="info-item"><span class="info-label">Province</span><span class="info-value"><?= htmlspecialchars($user_profile['province']??'&mdash;') ?></span></div>
-            <div class="info-item"><span class="info-label">Municipality</span><span class="info-value"><?= htmlspecialchars($user_profile['municipality']??'&mdash;') ?></span></div>
-          </div>
-        </div>
-        <div class="profile-actions">
-          <button class="btn-edit" onclick="openEditModal()"><i class="bi bi-pencil-square"></i> Edit Profile</button>
         </div>
       </div>
+
+      <!-- 2. Executive KPI Dashboard -->
+      <div class="da-pf-stats">
+        <div class="da-pf-stat-card">
+          <div class="da-pf-stat-icon" style="background:#ecfdf5;color:#059669;">
+            <i class="bi bi-geo-alt-fill"></i>
+          </div>
+          <div class="da-pf-stat-val" style="font-size:1.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            <?= htmlspecialchars($user_profile['assigned_region'] ?: 'Region V - Bicol') ?>
+          </div>
+          <div class="da-pf-stat-lbl">Assigned Jurisdiction</div>
+        </div>
+
+        <div class="da-pf-stat-card">
+          <div class="da-pf-stat-icon" style="background:#eff6ff;color:#3b82f6;">
+            <i class="bi bi-award-fill"></i>
+          </div>
+          <div class="da-pf-stat-val" style="font-size:1.15rem;">Tier 1 Authority</div>
+          <div class="da-pf-stat-lbl">Clearance Level</div>
+        </div>
+
+        <div class="da-pf-stat-card">
+          <div class="da-pf-stat-icon" style="background:#fef2f2;color:#ef4444;">
+            <i class="bi bi-shield-exclamation"></i>
+          </div>
+          <div class="da-pf-stat-val"><?= $analytics['totals']['active_incidents'] ?> Active</div>
+          <div class="da-pf-stat-lbl">Active Surveillance</div>
+        </div>
+
+        <div class="da-pf-stat-card">
+          <div class="da-pf-stat-icon" style="background:#fef3c7;color:#d97706;">
+            <i class="bi bi-houses-fill"></i>
+          </div>
+          <div class="da-pf-stat-val"><?= number_format($analytics['totals']['total_farms']) ?> Farms</div>
+          <div class="da-pf-stat-lbl">Regional Oversight</div>
+        </div>
+      </div>
+
+      <!-- 3. Navigation Tabs -->
+      <div class="da-pf-tabs" id="daTabsNav">
+        <button type="button" class="da-pf-tab-btn active" data-tab="profile" onclick="switchDaTab('profile')">
+          <i class="bi bi-person-badge-fill"></i> Officer Profile
+        </button>
+        <button type="button" class="da-pf-tab-btn" data-tab="jurisdiction" onclick="switchDaTab('jurisdiction')">
+          <i class="bi bi-building"></i> Office &amp; Jurisdiction
+        </button>
+        <button type="button" class="da-pf-tab-btn" data-tab="security" onclick="switchDaTab('security')">
+          <i class="bi bi-shield-check"></i> Security &amp; Password
+        </button>
+        <button type="button" class="da-pf-tab-btn" data-tab="regional" onclick="switchDaTab('regional')">
+          <i class="bi bi-graph-up-arrow"></i> Regional Authority
+        </button>
+      </div>
+
+      <!-- 4. Tab Panels -->
+      <!-- Tab A: Profile -->
+      <div id="daTabProfile" class="da-pf-panel active">
+        <div class="da-pf-card">
+          <div class="da-pf-card-hdr">
+            <div class="da-pf-card-title">
+              <i class="bi bi-person-vcard-fill" style="color:#059669;"></i> Official Identification &amp; Contact
+            </div>
+            <button type="button" class="btn-cancel" style="padding:6px 14px;font-size:0.8rem;" onclick="openEditModal()">
+              <i class="bi bi-pencil"></i> Edit Info
+            </button>
+          </div>
+          <div class="da-pf-grid">
+            <div class="da-pf-field">
+              <div class="da-pf-field-lbl"><i class="bi bi-person-fill"></i> Full Name</div>
+              <div class="da-pf-field-val"><?= htmlspecialchars(($user_profile['firstName']??'').' '.($user_profile['lastName']??'')) ?></div>
+            </div>
+
+            <div class="da-pf-field">
+              <div class="da-pf-field-lbl">
+                <span><i class="bi bi-upc-scan"></i> Government Officer ID</span>
+                <?php if(!empty($user_profile['gov_id'])): ?>
+                <button type="button" class="da-pf-copy" onclick="copyTagId('<?= htmlspecialchars(addslashes($user_profile['gov_id'])) ?>', this)">Copy</button>
+                <?php endif; ?>
+              </div>
+              <div class="da-pf-field-val"><?= !empty($user_profile['gov_id']) ? htmlspecialchars($user_profile['gov_id']) : '<span style="color:var(--c-text-sub);font-weight:400;">Not specified</span>' ?></div>
+            </div>
+
+            <div class="da-pf-field">
+              <div class="da-pf-field-lbl">
+                <span><i class="bi bi-envelope-fill"></i> Official Email</span>
+                <?php if(!empty($user_profile['email'])): ?>
+                <button type="button" class="da-pf-copy" onclick="copyTagId('<?= htmlspecialchars(addslashes($user_profile['email'])) ?>', this)">Copy</button>
+                <?php endif; ?>
+              </div>
+              <div class="da-pf-field-val"><?= !empty($user_profile['email']) ? htmlspecialchars($user_profile['email']) : '<span style="color:var(--c-text-sub);font-weight:400;">No email registered</span>' ?></div>
+            </div>
+
+            <div class="da-pf-field">
+              <div class="da-pf-field-lbl">
+                <span><i class="bi bi-telephone-fill"></i> Contact Number</span>
+                <?php if(!empty($user_profile['mobile'])): ?>
+                <button type="button" class="da-pf-copy" onclick="copyTagId('<?= htmlspecialchars(addslashes($user_profile['mobile'])) ?>', this)">Copy</button>
+                <?php endif; ?>
+              </div>
+              <div class="da-pf-field-val"><?= !empty($user_profile['mobile']) ? htmlspecialchars($user_profile['mobile']) : '<span style="color:var(--c-text-sub);font-weight:400;">No mobile registered</span>' ?></div>
+            </div>
+
+            <div class="da-pf-field">
+              <div class="da-pf-field-lbl"><i class="bi bi-building-fill"></i> Department / Division</div>
+              <div class="da-pf-field-val"><?= !empty($user_profile['department']) ? htmlspecialchars($user_profile['department']) : 'Department of Agriculture' ?></div>
+            </div>
+
+            <div class="da-pf-field">
+              <div class="da-pf-field-lbl"><i class="bi bi-briefcase-fill"></i> Official Position</div>
+              <div class="da-pf-field-val"><?= !empty($user_profile['position']) ? htmlspecialchars($user_profile['position']) : 'Agriculture Official' ?></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab B: Jurisdiction -->
+      <div id="daTabJurisdiction" class="da-pf-panel">
+        <div class="da-pf-card">
+          <div class="da-pf-card-hdr">
+            <div class="da-pf-card-title">
+              <i class="bi bi-compass-fill" style="color:#059669;"></i> Station, Extension Office &amp; Jurisdiction
+            </div>
+          </div>
+          <div class="da-pf-grid">
+            <div class="da-pf-field">
+              <div class="da-pf-field-lbl"><i class="bi bi-geo-alt-fill"></i> Administrative Region</div>
+              <div class="da-pf-field-val"><?= !empty($user_profile['assigned_region']) ? htmlspecialchars($user_profile['assigned_region']) : 'Region V - Bicol' ?></div>
+            </div>
+
+            <div class="da-pf-field">
+              <div class="da-pf-field-lbl"><i class="bi bi-map-fill"></i> Province</div>
+              <div class="da-pf-field-val"><?= !empty($user_profile['province']) ? htmlspecialchars($user_profile['province']) : 'Camarines Sur' ?></div>
+            </div>
+
+            <div class="da-pf-field">
+              <div class="da-pf-field-lbl"><i class="bi bi-pin-map-fill"></i> Municipality / District Coverage</div>
+              <div class="da-pf-field-val"><?= !empty($user_profile['municipality']) ? htmlspecialchars($user_profile['municipality']) : 'All Municipalities' ?></div>
+            </div>
+
+            <div class="da-pf-field">
+              <div class="da-pf-field-lbl"><i class="bi bi-bank2"></i> Field Extension Office / Station</div>
+              <div class="da-pf-field-val"><?= !empty($user_profile['office']) ? htmlspecialchars($user_profile['office']) : 'Provincial Agriculture Office' ?></div>
+            </div>
+          </div>
+
+          <div style="margin-top:1.25rem;padding:1rem;background:#f0fdf4;border-radius:14px;border:1px solid #bbf7d0;">
+            <div style="font-weight:800;color:#065f46;font-size:0.9rem;margin-bottom:0.35rem;display:flex;align-items:center;gap:6px;">
+              <i class="bi bi-check-circle-fill" style="color:#10b981;"></i> Regulatory &amp; Enforcement Mandates
+            </div>
+            <p style="font-size:0.8rem;color:#047857;margin:0;line-height:1.5;">
+              Authorized under the Bureau of Animal Industry and Department of Agriculture to conduct GAHP compliance inspections, issue animal travel permits, trigger regional quarantine buffer rings, and oversee biosecurity protocols.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab C: Security -->
+      <div id="daTabSecurity" class="da-pf-panel">
+        <div class="da-pf-card">
+          <div class="da-pf-card-hdr">
+            <div class="da-pf-card-title">
+              <i class="bi bi-shield-lock-fill" style="color:#059669;"></i> Change Officer Access Password
+            </div>
+          </div>
+          <form id="daOfficerPwForm" autocomplete="off" style="max-width:520px;">
+            <input type="hidden" name="action" value="change_officer_password">
+            <div class="form-group">
+              <label class="form-label">Current Password *</label>
+              <input type="password" class="form-input" name="current_password" required placeholder="Enter current password">
+            </div>
+            <div class="form-group">
+              <label class="form-label">New Password * (minimum 6 characters)</label>
+              <input type="password" class="form-input" name="new_password" required minlength="6" placeholder="Enter new strong password">
+            </div>
+            <div class="form-group" style="margin-bottom:1.25rem;">
+              <label class="form-label">Confirm New Password *</label>
+              <input type="password" class="form-input" name="confirm_password" required minlength="6" placeholder="Repeat new password">
+            </div>
+            <button type="submit" class="btn-save" id="btnUpdateOfficerPw">
+              <i class="bi bi-key-fill"></i> Update Password
+            </button>
+          </form>
+        </div>
+
+        <div class="da-pf-card">
+          <div class="da-pf-card-hdr">
+            <div class="da-pf-card-title">
+              <i class="bi bi-cpu-fill" style="color:#3b82f6;"></i> Officer Security Audit &amp; System Metadata
+            </div>
+          </div>
+          <div class="da-pf-grid">
+            <div class="da-pf-field">
+              <div class="da-pf-field-lbl">Officer User ID</div>
+              <div class="da-pf-field-val">#OFFICER-<?= str_pad($user_id, 4, '0', STR_PAD_LEFT) ?></div>
+            </div>
+            <div class="da-pf-field">
+              <div class="da-pf-field-lbl">System Authorization Role</div>
+              <div class="da-pf-field-val"><?= htmlspecialchars($user_role) ?></div>
+            </div>
+            <div class="da-pf-field">
+              <div class="da-pf-field-lbl">Official Registration Date</div>
+              <div class="da-pf-field-val"><?= !empty($user_profile['createdAt']) ? date('M d, Y h:i A', strtotime($user_profile['createdAt'])) : 'Active' ?></div>
+            </div>
+            <div class="da-pf-field">
+              <div class="da-pf-field-lbl">Account Status</div>
+              <div class="da-pf-field-val"><span style="color:#059669;font-weight:800;">● Active &amp; Clearance Granted</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab D: Regional -->
+      <div id="daTabRegional" class="da-pf-panel">
+        <div class="da-pf-card">
+          <div class="da-pf-card-hdr">
+            <div class="da-pf-card-title">
+              <i class="bi bi-bar-chart-fill" style="color:#059669;"></i> Regional Livestock Surveillance Summary
+            </div>
+            <button type="button" class="btn-cancel" onclick="downloadReport('pdf')" style="font-size:0.78rem;padding:6px 12px;">
+              <i class="bi bi-download"></i> Export Summary
+            </button>
+          </div>
+          <div class="da-pf-grid">
+            <div class="da-pf-field">
+              <div class="da-pf-field-lbl">Total Livestock Recorded</div>
+              <div class="da-pf-field-val" style="font-size:1.4rem;color:#059669;"><?= number_format($analytics['totals']['total_livestock']) ?> Heads</div>
+            </div>
+            <div class="da-pf-field">
+              <div class="da-pf-field-lbl">Total Registered Farms</div>
+              <div class="da-pf-field-val" style="font-size:1.4rem;color:#3b82f6;"><?= number_format($analytics['totals']['total_farms']) ?> Facilities</div>
+            </div>
+            <div class="da-pf-field">
+              <div class="da-pf-field-lbl">Total Incident Reports</div>
+              <div class="da-pf-field-val" style="font-size:1.4rem;color:#f59e0b;"><?= number_format($analytics['totals']['total_incidents']) ?> Filed</div>
+            </div>
+            <div class="da-pf-field">
+              <div class="da-pf-field-lbl">Active Critical Incidents</div>
+              <div class="da-pf-field-val" style="font-size:1.4rem;color:#ef4444;"><?= number_format($analytics['totals']['active_incidents']) ?> Active</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
+    <!-- Edit Profile Modal -->
     <div id="editProfileModal" class="modal-overlay">
-      <div class="modal-content">
+      <div class="modal-content" style="max-width:580px;">
         <div class="modal-header">
-          <h3><i class="bi bi-pencil-square"></i> Edit Profile</h3>
+          <h3><i class="bi bi-person-gear"></i> Edit Officer Credentials</h3>
           <button class="modal-close" onclick="closeEditModal()">&times;</button>
         </div>
         <div class="modal-body">
           <form id="profileForm" enctype="multipart/form-data">
             <input type="hidden" name="action" value="update_profile">
             <input type="hidden" name="user_id" value="<?= $user_id ?>">
+            
+            <!-- Live Avatar Selection Row -->
+            <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.25rem;padding:0.85rem;background:#f8fafc;border-radius:14px;border:1px solid var(--c-slate-200);">
+              <div class="da-preview-avatar" id="daEditLiveAvatar">
+                <?php if (!empty($user_profile['profile_pix']) && file_exists($user_profile['profile_pix'])): ?>
+                  <img src="<?= htmlspecialchars($user_profile['profile_pix']) ?>" alt="Preview">
+                <?php else: ?>
+                  <i class="bi bi-person-fill"></i>
+                <?php endif; ?>
+              </div>
+              <div style="flex:1;">
+                <label class="form-label" style="margin-bottom:3px;font-size:0.8rem;">Profile Photo</label>
+                <input class="form-input" type="file" name="profile_pic" accept="image/*" onchange="previewDaPhoto(this)" style="padding:0.4rem;font-size:0.78rem;">
+                <div style="font-size:0.68rem;color:var(--c-text-sub);margin-top:3px;">JPG, PNG up to 5MB</div>
+              </div>
+            </div>
+
             <div class="form-row-2">
               <div class="form-group">
-                <label class="form-label">First Name</label>
+                <label class="form-label">First Name *</label>
                 <input class="form-input" type="text" name="firstName" value="<?= htmlspecialchars($user_profile['firstName']??'') ?>" required>
               </div>
               <div class="form-group">
-                <label class="form-label">Last Name</label>
+                <label class="form-label">Last Name *</label>
                 <input class="form-input" type="text" name="lastName" value="<?= htmlspecialchars($user_profile['lastName']??'') ?>" required>
               </div>
             </div>
+
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="form-label">Mobile Contact</label>
+                <input class="form-input" type="text" name="mobile" value="<?= htmlspecialchars($user_profile['mobile']??'') ?>" placeholder="+63 9XX XXX XXXX">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Government ID No.</label>
+                <input class="form-input" type="text" name="gov_id" value="<?= htmlspecialchars($user_profile['gov_id']??'') ?>" placeholder="e.g. DA-BAI-2024-001">
+              </div>
+            </div>
+
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="form-label">Department / Bureau</label>
+                <input class="form-input" type="text" name="department" value="<?= htmlspecialchars($user_profile['department']??'') ?>" placeholder="Bureau of Animal Industry">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Position / Designation</label>
+                <input class="form-input" type="text" name="position" value="<?= htmlspecialchars($user_profile['position']??'') ?>" placeholder="Agricultural Technologist II">
+              </div>
+            </div>
+
             <div class="form-group">
-              <label class="form-label">Mobile</label>
-              <input class="form-input" type="text" name="mobile" value="<?= htmlspecialchars($user_profile['mobile']??'') ?>">
+              <label class="form-label">Field Station / Office</label>
+              <input class="form-input" type="text" name="office" value="<?= htmlspecialchars($user_profile['office']??'') ?>" placeholder="Provincial Agriculture Office, Pili, Camarines Sur">
             </div>
+
             <div class="form-row-2">
               <div class="form-group">
-                <label class="form-label">Gov't ID</label>
-                <input class="form-input" type="text" name="gov_id" value="<?= htmlspecialchars($user_profile['gov_id']??'') ?>">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Department</label>
-                <input class="form-input" type="text" name="department" value="<?= htmlspecialchars($user_profile['department']??'') ?>">
-              </div>
-            </div>
-            <div class="form-row-2">
-              <div class="form-group">
-                <label class="form-label">Position</label>
-                <input class="form-input" type="text" name="position" value="<?= htmlspecialchars($user_profile['position']??'') ?>">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Office</label>
-                <input class="form-input" type="text" name="office" value="<?= htmlspecialchars($user_profile['office']??'') ?>">
-              </div>
-            </div>
-            <div class="form-row-2">
-              <div class="form-group">
-                <label class="form-label">Region</label>
-                <input class="form-input" type="text" name="assigned_region" value="<?= htmlspecialchars($user_profile['assigned_region']??'') ?>">
+                <label class="form-label">Administrative Region</label>
+                <input class="form-input" type="text" name="assigned_region" value="<?= htmlspecialchars($user_profile['assigned_region']??'') ?>" placeholder="Region V - Bicol">
               </div>
               <div class="form-group">
                 <label class="form-label">Province</label>
-                <input class="form-input" type="text" name="province" value="<?= htmlspecialchars($user_profile['province']??'') ?>">
+                <input class="form-input" type="text" name="province" value="<?= htmlspecialchars($user_profile['province']??'') ?>" placeholder="Camarines Sur">
               </div>
             </div>
+
             <div class="form-group">
-              <label class="form-label">Municipality</label>
-              <input class="form-input" type="text" name="municipality" value="<?= htmlspecialchars($user_profile['municipality']??'') ?>">
+              <label class="form-label">Municipality / Assigned Area</label>
+              <input class="form-input" type="text" name="municipality" value="<?= htmlspecialchars($user_profile['municipality']??'') ?>" placeholder="e.g. Pili, Naga City, Iriga City">
             </div>
+
             <div class="form-group">
-              <label class="form-label">New Password <span style="color:var(--c-text-sub);font-weight:400;">(leave blank to keep)</span></label>
-              <input class="form-input" type="password" name="new_password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Profile Photo</label>
-              <input class="form-input" type="file" name="profile_pic" accept="image/*">
+              <label class="form-label">Set New Password <span style="color:var(--c-text-sub);font-weight:400;">(leave blank to keep current)</span></label>
+              <input class="form-input" type="password" name="new_password" placeholder="••••••••">
             </div>
           </form>
         </div>
         <div class="modal-actions">
-          <button class="btn-cancel" onclick="closeEditModal()">Cancel</button>
-          <button class="btn-save" onclick="submitProfile()"><i class="bi bi-check2"></i> Save Changes</button>
+          <button type="button" class="btn-cancel" onclick="closeEditModal()">Cancel</button>
+          <button type="button" class="btn-save" onclick="submitProfile()"><i class="bi bi-check2"></i> Save Changes</button>
         </div>
       </div>
     </div>
@@ -2429,6 +3073,91 @@ function animateBars() {
   });
 }
 
+function switchDaTab(tabName) {
+  document.querySelectorAll('#daTabsNav .da-pf-tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tabName);
+  });
+  const tabIds = {
+    profile: 'daTabProfile',
+    jurisdiction: 'daTabJurisdiction',
+    security: 'daTabSecurity',
+    regional: 'daTabRegional'
+  };
+  Object.keys(tabIds).forEach(k => {
+    const el = document.getElementById(tabIds[k]);
+    if (el) el.classList.toggle('active', k === tabName);
+  });
+}
+
+function previewDaPhoto(input) {
+  if (input.files && input.files[0]) {
+    const file = input.files[0];
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Photo is too large (max 5MB)', 'warn');
+      input.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const preview = document.getElementById('daEditLiveAvatar');
+      if (preview) {
+        preview.innerHTML = `<img src="${e.target.result}" alt="Preview" style="width:100%;height:100%;object-fit:cover;">`;
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+if (!window.copyTagId) {
+  window.copyTagId = function(tagId, el) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(tagId).then(() => {
+        showToast(`Copied: ${tagId}`, 'success');
+        if (el) {
+          const orig = el.textContent;
+          el.textContent = 'Copied!';
+          setTimeout(() => { el.textContent = orig; }, 1800);
+        }
+      }).catch(() => fallbackCopy(tagId));
+    } else {
+      fallbackCopy(tagId);
+    }
+  };
+  function fallbackCopy(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast(`Copied: ${text}`, 'success');
+  }
+}
+
+const daOfficerPwForm = document.getElementById('daOfficerPwForm');
+if (daOfficerPwForm) {
+  daOfficerPwForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnUpdateOfficerPw');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Updating...'; }
+    try {
+      const fd = new FormData(this);
+      const res = await fetch(window.location.href, { method: 'POST', body: fd });
+      const r = await res.json();
+      if (r.success) {
+        showToast(r.message || 'Password updated successfully!', 'success');
+        this.reset();
+      } else {
+        showToast(r.message || 'Password update failed', 'error');
+      }
+    } catch {
+      showToast('Network error while updating password', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-key-fill"></i> Update Password'; }
+    }
+  });
+}
+
 function openEditModal() { document.getElementById('editProfileModal').classList.add('active'); document.body.style.overflow = 'hidden'; }
 function closeEditModal() { document.getElementById('editProfileModal').classList.remove('active'); document.body.style.overflow = ''; }
 document.getElementById('editProfileModal').addEventListener('click', function(e) { if (e.target === this) closeEditModal(); });
@@ -2439,7 +3168,7 @@ async function submitProfile() {
     const fd = new FormData(document.getElementById('profileForm'));
     const res = await fetch(window.location.href, { method:'POST', body: fd });
     const r = await res.json();
-    if (r.success) { showToast('Profile updated!', 'success'); closeEditModal(); setTimeout(() => location.reload(), 1000); }
+    if (r.success) { showToast(r.message || 'Profile updated!', 'success'); closeEditModal(); setTimeout(() => location.reload(), 1000); }
     else showToast(r.message, 'error');
   } catch { showToast('Update failed', 'error'); }
   finally { showLoading(false); }
