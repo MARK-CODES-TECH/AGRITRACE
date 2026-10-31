@@ -143,8 +143,9 @@ if ($requestMethod === 'POST' && isset($_POST['action']) && $_POST['action'] ===
     header('Content-Type: application/json');
     try {
         $id = (int)$_POST['livestock_id'];
-        $pdo->prepare("UPDATE livestock SET type=?,breed=?,age=?,weight=?,healthStatus=?,vaccinationStatus=?,qty=?,tagId=? WHERE id=?")
-            ->execute([$_POST['type'],$_POST['breed']??null,$_POST['age']??null,$_POST['weight']??null,$_POST['healthStatus'],$_POST['vaccinationStatus'],$_POST['qty'],$_POST['tagId'],$id]);
+        $notes = trim($_POST['notes'] ?? '') ?: null;
+        $pdo->prepare("UPDATE livestock SET type=?,breed=?,age=?,weight=?,healthStatus=?,vaccinationStatus=?,qty=?,tagId=?,notes=? WHERE id=?")
+            ->execute([$_POST['type'],$_POST['breed']??null,$_POST['age']??null,$_POST['weight']??null,$_POST['healthStatus'],$_POST['vaccinationStatus'],$_POST['qty'],$_POST['tagId'],$notes,$id]);
         echo json_encode(['success'=>true]);
     } catch(Exception $e){ echo json_encode(['success'=>false,'message'=>$e->getMessage()]); }
     exit;
@@ -158,8 +159,11 @@ if ($requestMethod === 'POST' && isset($_POST['action']) && $_POST['action'] ===
         $f=$pdo->prepare("SELECT id FROM farms WHERE id=? AND ownerId=?");
         $f->execute([$farmId,$userId]);
         if(!$f->fetch()) throw new Exception('Farm not found');
-        $pdo->prepare("INSERT INTO livestock(farmId,type,tagId,breed,age,weight,qty,healthStatus,vaccinationStatus) VALUES(?,?,?,?,?,?,?,'Healthy','None')")
-            ->execute([$farmId,$_POST['type'],$_POST['tagId'],$_POST['breed']??null,$_POST['age']??null,$_POST['weight']??null,$_POST['qty']??1]);
+        $health = $_POST['healthStatus'] ?? 'Healthy';
+        $vax = $_POST['vaccinationStatus'] ?? 'None';
+        $notes = trim($_POST['notes'] ?? '') ?: null;
+        $pdo->prepare("INSERT INTO livestock(farmId,type,tagId,breed,age,weight,qty,healthStatus,vaccinationStatus,notes) VALUES(?,?,?,?,?,?,?,?,?,?)")
+            ->execute([$farmId,$_POST['type'],$_POST['tagId'],$_POST['breed']??null,$_POST['age']??null,$_POST['weight']??null,$_POST['qty']??1,$health,$vax,$notes]);
         echo json_encode(['success'=>true]);
     } catch(Exception $e){ echo json_encode(['success'=>false,'message'=>$e->getMessage()]); }
     exit;
@@ -547,6 +551,19 @@ $allAnimalTypes = ['Cattle','Swine','Poultry','Goat','Carabao','Horse','Sheep','
 function healthBadge($s){$map=['Healthy'=>'badge-healthy','Sick'=>'badge-sick','Recovered'=>'badge-approved','Deceased'=>'badge-pending'];return $map[$s]??'badge-pending';}
 function statusBadge($s){$map=['Pending'=>'badge-pending','Approved'=>'badge-approved','Rejected'=>'badge-rejected','Active'=>'badge-approved','Resolved'=>'badge-approved','In Progress'=>'badge-pending','Closed'=>'badge-pending'];return $map[$s]??'badge-pending';}
 function animalIcon($type){$map=['Cattle'=>'bi-cow-fill','Swine'=>'bi-pig-fill','Poultry'=>'bi-egg-fill','Goat'=>'bi-bag-fill','Carabao'=>'bi-box2-fill','Horse'=>'bi-wind','Sheep'=>'bi-cloud-fill','Rabbit'=>'bi-circle-fill'];return $map[$type]??'bi-box-fill';}
+function getAnimalTheme($type){
+    $themes = [
+        'Swine'   => ['bg'=>'linear-gradient(135deg,#fdf2f8,#fce7f3)','color'=>'#db2777'],
+        'Cattle'  => ['bg'=>'linear-gradient(135deg,#fffbeb,#fef3c7)','color'=>'#d97706'],
+        'Poultry' => ['bg'=>'linear-gradient(135deg,#fff7ed,#ffedd5)','color'=>'#ea580c'],
+        'Goat'    => ['bg'=>'linear-gradient(135deg,#ecfdf5,#d1fae5)','color'=>'#059669'],
+        'Carabao' => ['bg'=>'linear-gradient(135deg,#f8fafc,#e2e8f0)','color'=>'#334155'],
+        'Horse'   => ['bg'=>'linear-gradient(135deg,#f5f3ff,#ede9fe)','color'=>'#7c3aed'],
+        'Sheep'   => ['bg'=>'linear-gradient(135deg,#f8fafc,#f1f5f9)','color'=>'#475569'],
+        'Rabbit'  => ['bg'=>'linear-gradient(135deg,#fdf4ff,#fae8ff)','color'=>'#c026d3'],
+    ];
+    return $themes[$type] ?? ['bg'=>'linear-gradient(135deg,#ecfdf5,#d1fae5)','color'=>'#059669'];
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -793,6 +810,679 @@ textarea.form-input{resize:none;line-height:1.5;}
 .animal-picker-wrap{background:#fff;border:1px solid var(--border);border-radius:14px;padding:.875rem;margin-bottom:.875rem;display:none;}
 .animal-picker-wrap.show{display:block;}
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   MODERN LIVESTOCK WEB APP STYLES
+   ═══════════════════════════════════════════════════════════════════════════ */
+.lv-app-header {
+  background: linear-gradient(135deg, #064e3b 0%, #047857 55%, #10b981 100%);
+  border-radius: 20px;
+  padding: 1.5rem 1.4rem;
+  margin-bottom: 1.25rem;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 10px 25px -5px rgba(6, 78, 59, 0.25);
+}
+.lv-app-header::after {
+  content: '';
+  position: absolute;
+  top: -45px;
+  right: -45px;
+  width: 170px;
+  height: 170px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+.lv-badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(8px);
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+.lv-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.7);
+  animation: lvPulse 2s infinite;
+}
+@keyframes lvPulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 7px rgba(52, 211, 153, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
+}
+.lv-header-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+@media (min-width: 768px) {
+  .lv-header-content {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+.lv-header-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.lv-btn-primary {
+  background: #fff;
+  color: #064e3b;
+  border: none;
+  font-weight: 700;
+  font-size: 0.84rem;
+  padding: 0.65rem 1.15rem;
+  border-radius: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  font-family: inherit;
+}
+.lv-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+  background: #f0fdf4;
+}
+.lv-btn-glass {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  font-weight: 600;
+  font-size: 0.84rem;
+  padding: 0.65rem 1rem;
+  border-radius: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+  font-family: inherit;
+  backdrop-filter: blur(8px);
+}
+.lv-btn-glass:hover {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+/* 2. Top Metric KPI Dashboard Cards */
+.lv-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+@media (min-width: 900px) {
+  .lv-kpi-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
+}
+.lv-kpi-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1rem;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.lv-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+}
+.lv-kpi-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  margin-bottom: 0.65rem;
+}
+.lv-kpi-val {
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--txt);
+  margin-bottom: 0.25rem;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.lv-kpi-lbl {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--sub);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.lv-kpi-sub {
+  font-size: 0.72rem;
+  color: var(--sub);
+  margin-top: 0.35rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 3. Species Filter Ribbon */
+.lv-ribbon-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.lv-ribbon-wrap::-webkit-scrollbar {
+  display: none;
+}
+.lv-chip-btn {
+  background: #fff;
+  border: 1.5px solid var(--border);
+  padding: 0.45rem 0.95rem;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--sub);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: all 0.18s ease;
+  font-family: inherit;
+}
+.lv-chip-btn:hover {
+  border-color: #cbd5e1;
+  color: var(--txt);
+}
+.lv-chip-btn.active {
+  background: #ecfdf5;
+  border-color: #10b981;
+  color: #064e3b;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.15);
+}
+.lv-chip-count {
+  background: #f1f5f9;
+  color: var(--sub);
+  font-size: 0.7rem;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  font-weight: 800;
+}
+.lv-chip-btn.active .lv-chip-count {
+  background: #10b981;
+  color: #fff;
+}
+
+/* 4. Toolbar: Search, Filters & View Switcher */
+.lv-toolbar-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 0.875rem 1rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+@media (min-width: 820px) {
+  .lv-toolbar-card {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+.lv-search-box {
+  position: relative;
+  flex: 1;
+  max-width: 360px;
+}
+.lv-search-box i.bi-search {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--sub);
+  font-size: 0.85rem;
+}
+.lv-search-input {
+  width: 100%;
+  padding: 0.55rem 2rem 0.55rem 2.25rem;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.83rem;
+  background: #f8fafc;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+.lv-search-input:focus {
+  outline: none;
+  background: #fff;
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
+}
+.lv-search-clear {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--sub);
+  cursor: pointer;
+  display: none;
+  font-size: 0.95rem;
+}
+.lv-filters-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.lv-select {
+  padding: 0.5rem 1.8rem 0.5rem 0.75rem;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  background: #f8fafc url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2364748b' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E") no-repeat calc(100% - 8px) center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--txt);
+  cursor: pointer;
+  font-family: inherit;
+  appearance: none;
+}
+.lv-view-toggles {
+  display: flex;
+  background: #f1f5f9;
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.lv-view-btn {
+  background: none;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 7px;
+  color: var(--sub);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.lv-view-btn.active {
+  background: #fff;
+  color: var(--txt);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* 5. Grid View Cards */
+.lv-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+@media (min-width: 680px) {
+  .lv-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (min-width: 1120px) {
+  .lv-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+.lv-card {
+  background: #fff;
+  border: 1.5px solid var(--border);
+  border-radius: 18px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+}
+.lv-card:hover {
+  transform: translateY(-3px);
+  border-color: #cbd5e1;
+  box-shadow: 0 10px 24px -5px rgba(0, 0, 0, 0.08);
+}
+.lv-card-top {
+  padding: 1.15rem 1.15rem 0.85rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+.lv-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+}
+.lv-card-main {
+  flex: 1;
+  min-width: 0;
+}
+.lv-card-title {
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--txt);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lv-farm-badge {
+  font-size: 0.72rem;
+  color: var(--sub);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lv-tag-strip {
+  background: #f8fafc;
+  border-top: 1px dashed var(--border);
+  border-bottom: 1px dashed var(--border);
+  padding: 0.5rem 1.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.lv-tag-chip {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #064e3b;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  background: #ecfdf5;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  transition: all 0.15s;
+}
+.lv-tag-chip:hover {
+  background: #d1fae5;
+}
+.lv-qty-pill {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #047857;
+  background: #e6fffa;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+.lv-vitals-grid {
+  padding: 0.85rem 1.15rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+.lv-vital-cell {
+  background: #f8fafc;
+  padding: 0.45rem 0.65rem;
+  border-radius: 8px;
+  font-size: 0.73rem;
+}
+.lv-vital-lbl {
+  color: var(--sub);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 1px;
+}
+.lv-vital-val {
+  font-weight: 700;
+  color: var(--txt);
+}
+.lv-notes-callout {
+  margin: 0 1.15rem 0.85rem;
+  background: #f8fafc;
+  border-left: 3px solid #10b981;
+  border-radius: 0 8px 8px 0;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.73rem;
+  color: var(--sub);
+  line-height: 1.4;
+  font-style: italic;
+}
+.lv-card-footer {
+  margin-top: auto;
+  border-top: 1px solid #f1f5f9;
+  padding: 0.65rem 1.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fafafa;
+}
+.lv-card-btns {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.lv-action-btn {
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--txt);
+  padding: 5px 9px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.lv-action-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+.lv-action-btn.danger {
+  color: #ef4444;
+  border-color: #fee2e2;
+  background: #fef2f2;
+}
+.lv-action-btn.danger:hover {
+  background: #fee2e2;
+}
+.lv-action-btn.warn {
+  color: #d97706;
+  border-color: #fef3c7;
+  background: #fffbeb;
+}
+.lv-action-btn.warn:hover {
+  background: #fef3c7;
+}
+
+/* 6. Modern High-Density Table View */
+.lv-table-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+  margin-bottom: 1.5rem;
+}
+.lv-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.lv-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.82rem;
+}
+.lv-table th {
+  background: #f8fafc;
+  color: var(--sub);
+  font-weight: 700;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.85rem 1rem;
+  border-bottom: 1.5px solid var(--border);
+  white-space: nowrap;
+}
+.lv-table td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+.lv-table tr:last-child td {
+  border-bottom: none;
+}
+.lv-table tr:hover td {
+  background: #fafafa;
+}
+
+/* 7. Status & Health Indicator Badges */
+.lv-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+}
+.lv-status-healthy { background: #10b981; box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2); }
+.lv-status-sick { background: #ef4444; box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2); }
+.lv-status-recovered { background: #06b6d4; box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.2); }
+.lv-status-deceased { background: #64748b; }
+
+.lv-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.lv-pill-healthy { background: #ecfdf5; color: #047857; border: 1px solid rgba(16, 185, 129, 0.25); }
+.lv-pill-sick { background: #fef2f2; color: #dc2626; border: 1px solid rgba(239, 68, 68, 0.25); }
+.lv-pill-recovered { background: #ecfeff; color: #0891b2; border: 1px solid rgba(6, 182, 212, 0.25); }
+.lv-pill-deceased { background: #f1f5f9; color: #475569; border: 1px solid rgba(100, 116, 139, 0.25); }
+
+.lv-vax-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.lv-vax-complete { background: #ecfdf5; color: #059669; }
+.lv-vax-partial { background: #fef3c7; color: #b45309; }
+.lv-vax-none { background: #f1f5f9; color: #64748b; }
+
+/* 8. Farm Grouped View */
+.lv-farm-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 1.15rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+}
+.lv-farm-header {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding-bottom: 0.875rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.lv-farm-avatar {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, var(--pri), var(--acc));
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.15rem;
+  flex-shrink: 0;
+  box-shadow: 0 4px 10px rgba(6, 78, 59, 0.15);
+}
+.lv-farm-title {
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--txt);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lv-farm-subtitle {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 2px;
+}
+.lv-farm-count-badge {
+  text-align: right;
+  flex-shrink: 0;
+}
+.lv-farm-count-num {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--acc2);
+}
+.lv-farm-count-lbl {
+  font-size: 0.65rem;
+  color: var(--sub);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Legacy Support */
 .livestock-card{border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:.875rem;}
 .livestock-row{display:flex;align-items:center;gap:.875rem;padding:.875rem 1rem;border-bottom:1px solid #f1f5f9;background:#fff;}
 .livestock-row:last-child{border-bottom:none;}
@@ -2432,78 +3122,515 @@ body:not(.sidebar-autohide) .btn-drawer-pin {
 
       <!-- ══ LIVESTOCK ══ -->
       <div id="pg-livestock" class="page">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-          <h2 style="font-size:1.1rem;font-weight:800;"><i class="bi bi-clipboard2-pulse"></i> Livestock</h2>
-          <?php if(!empty($farmsData)): ?>
-          <button class="btn btn-primary" style="padding:.5rem .875rem;font-size:.78rem;" onclick="openModal('lvAddModal')"><i class="bi bi-plus-lg"></i> Add</button>
-          <?php endif; ?>
-        </div>
-        <?php if(empty($livestockByFarm)): ?>
-        <div class="card">
-          <div class="empty-state">
-            <i class="bi bi-cow-fill"></i>
-            <h4>No Livestock Records</h4>
-            <p><?= empty($farmsData) ? 'Register a farm first to add livestock.' : 'No livestock added yet.' ?></p>
-            <?php if(empty($farmsData)): ?>
-            <button class="btn btn-primary" style="margin-top:1rem;" onclick="navTo('farm-reg')"><i class="bi bi-house-add-fill"></i> Register Farm</button>
-            <?php endif; ?>
+        <?php
+        $flatLivestock = [];
+        $totalHeadCount = 0;
+        $healthyCount = 0;
+        $sickCount = 0;
+        $vaxCompleteCount = 0;
+
+        foreach($allLvRows as $r) {
+            if (!empty($r['tagId'])) {
+                $flatLivestock[] = $r;
+                $q = (int)($r['qty'] ?? 1);
+                $totalHeadCount += $q;
+                $st = $r['healthStatus'] ?? 'Healthy';
+                if ($st === 'Healthy') $healthyCount += $q;
+                elseif ($st === 'Sick') $sickCount += $q;
+                if (($r['vaccinationStatus'] ?? '') === 'Complete') $vaxCompleteCount += $q;
+            }
+        }
+        $healthRate = $totalHeadCount > 0 ? round(($healthyCount / $totalHeadCount) * 100) : 100;
+        $vaxRate = $totalHeadCount > 0 ? round(($vaxCompleteCount / $totalHeadCount) * 100) : 0;
+        ?>
+
+        <!-- 1. Modern Web App Header -->
+        <div class="lv-app-header">
+          <div class="lv-header-content">
+            <div>
+              <div class="lv-badge-pill">
+                <span class="lv-pulse-dot"></span>
+                <span>Live Herd Registry &bull; <?= count($livestockByFarm) ?> <?= count($livestockByFarm) === 1 ? 'Farm' : 'Farms' ?> Connected</span>
+              </div>
+              <h1 style="font-size:1.6rem;font-weight:800;letter-spacing:-0.02em;margin:0 0 0.35rem;line-height:1.2;">
+                Livestock Management
+              </h1>
+              <p style="margin:0;font-size:0.84rem;opacity:0.92;max-width:620px;line-height:1.45;">
+                Track animal health records, vaccination schedules, ear tag credentials, and herd productivity across all your registered farm facilities.
+              </p>
+            </div>
+            <div class="lv-header-actions">
+              <?php if(!empty($farmsData)): ?>
+              <button type="button" class="lv-btn-primary" onclick="openModal('lvAddModal')">
+                <i class="bi bi-plus-circle-fill"></i> Add Animal
+              </button>
+              <?php endif; ?>
+              <button type="button" class="lv-btn-glass" onclick="exportLivestockCSV()">
+                <i class="bi bi-download"></i> Export CSV
+              </button>
+              <button type="button" class="lv-btn-glass" onclick="navTo('incident')">
+                <i class="bi bi-exclamation-triangle"></i> Report Issue
+              </button>
+            </div>
           </div>
+        </div>
+
+        <!-- 2. Metric KPI Dashboard Cards -->
+        <div class="lv-kpi-grid">
+          <div class="lv-kpi-card">
+            <div class="lv-kpi-icon" style="background:#ecfdf5;color:#059669;">
+              <i class="bi bi-boxes"></i>
+            </div>
+            <div class="lv-kpi-val">
+              <span id="kpiTotalAnimals"><?= number_format($totalHeadCount) ?></span>
+              <span style="font-size:0.8rem;color:var(--sub);font-weight:600;">heads</span>
+            </div>
+            <div class="lv-kpi-lbl">Total Head Count</div>
+            <div class="lv-kpi-sub">
+              <i class="bi bi-upc-scan" style="color:var(--acc);"></i>
+              <span><?= count($flatLivestock) ?> tagged lots / records</span>
+            </div>
+          </div>
+
+          <div class="lv-kpi-card">
+            <div class="lv-kpi-icon" style="background:rgba(16,185,129,0.12);color:#10b981;">
+              <i class="bi bi-heart-pulse-fill"></i>
+            </div>
+            <div class="lv-kpi-val">
+              <span><?= $healthRate ?>%</span>
+            </div>
+            <div class="lv-kpi-lbl">Health Index</div>
+            <div class="lv-kpi-sub">
+              <span class="lv-status-dot lv-status-healthy"></span>
+              <span><?= number_format($healthyCount) ?> in optimal condition</span>
+            </div>
+          </div>
+
+          <div class="lv-kpi-card">
+            <div class="lv-kpi-icon" style="background:#fef2f2;color:#ef4444;">
+              <i class="bi bi-shield-exclamation"></i>
+            </div>
+            <div class="lv-kpi-val" style="color:<?= $sickCount > 0 ? '#ef4444' : 'var(--txt)' ?>;">
+              <span><?= number_format($sickCount) ?></span>
+              <span style="font-size:0.8rem;color:var(--sub);font-weight:600;">head<?= $sickCount === 1 ? '' : 's' ?></span>
+            </div>
+            <div class="lv-kpi-lbl">Requires Attention</div>
+            <div class="lv-kpi-sub" style="color:<?= $sickCount > 0 ? '#dc2626' : 'var(--sub)' ?>;">
+              <?= $sickCount > 0 ? '<i class="bi bi-exclamation-circle-fill"></i> Flagged for treatment' : '<i class="bi bi-check-circle-fill" style="color:#10b981;"></i> No critical alerts' ?>
+            </div>
+          </div>
+
+          <div class="lv-kpi-card">
+            <div class="lv-kpi-icon" style="background:#eff6ff;color:#3b82f6;">
+              <i class="bi bi-shield-check"></i>
+            </div>
+            <div class="lv-kpi-val">
+              <span><?= $vaxRate ?>%</span>
+            </div>
+            <div class="lv-kpi-lbl">Vaccination Coverage</div>
+            <div class="lv-kpi-sub">
+              <i class="bi bi-check2-circle" style="color:#3b82f6;"></i>
+              <span><?= number_format($vaxCompleteCount) ?> head<?= $vaxCompleteCount === 1 ? '' : 's' ?> fully vaccinated</span>
+            </div>
+          </div>
+        </div>
+
+        <?php if(empty($flatLivestock)): ?>
+        <div class="card" style="padding:2.5rem 1.5rem;text-align:center;border-radius:18px;">
+          <div style="width:72px;height:72px;margin:0 auto 1.25rem;border-radius:20px;background:#ecfdf5;color:#059669;display:flex;align-items:center;justify-content:center;font-size:2.2rem;">
+            <i class="bi bi-shield-plus"></i>
+          </div>
+          <h3 style="font-weight:800;color:var(--txt);margin-bottom:0.5rem;font-size:1.2rem;">No Livestock Recorded Yet</h3>
+          <p style="font-size:0.85rem;color:var(--sub);max-width:440px;margin:0 auto 1.5rem;line-height:1.5;">
+            <?= empty($farmsData) ? 'Please register your farm first. Once approved, you can start tracking and monitoring your animal registry.' : 'Your farm registry is ready. Add your first animal to track vaccinations, health condition, and weight records.' ?>
+          </p>
+          <?php if(empty($farmsData)): ?>
+          <button class="btn btn-primary" onclick="navTo('farm-reg')"><i class="bi bi-house-add-fill"></i> Register Farm First</button>
+          <?php else: ?>
+          <button class="btn btn-primary" onclick="openModal('lvAddModal')"><i class="bi bi-plus-lg"></i> Add First Animal</button>
+          <?php endif; ?>
         </div>
         <?php else: ?>
-        <?php foreach($livestockByFarm as $fId => $fData):
-          $farmTotal = array_sum(array_column($fData['livestock'],'qty'));
-        ?>
-        <div class="card">
-          <div style="display:flex;align-items:center;gap:.875rem;margin-bottom:1rem;padding-bottom:.875rem;border-bottom:1px solid var(--border);">
-            <div style="width:46px;height:46px;background:linear-gradient(135deg,var(--pri),var(--acc));border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:1.1rem;flex-shrink:0;"><?= strtoupper(substr($fData['farm']['name'],0,1)) ?></div>
-            <div style="flex:1;min-width:0;">
-              <div style="font-weight:800;font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?= htmlspecialchars($fData['farm']['name']) ?></div>
-              <div style="display:flex;gap:.5rem;align-items:center;margin-top:.15rem;">
-                <span class="badge <?= statusBadge($fData['farm']['status']) ?>"><?= $fData['farm']['status'] ?></span>
-                <span style="font-size:.73rem;color:var(--sub);"><?= htmlspecialchars($fData['farm']['type']) ?></span>
-              </div>
-            </div>
-            <div style="text-align:right;flex-shrink:0;">
-              <div style="font-size:1.3rem;font-weight:800;color:var(--acc);"><?= number_format($farmTotal) ?></div>
-              <div style="font-size:.65rem;color:var(--sub);font-weight:600;">ANIMALS</div>
-            </div>
-          </div>
-          <?php if(!empty($fData['livestock'])): ?>
-          <div class="livestock-card">
-            <?php foreach($fData['livestock'] as $lv): ?>
-            <div class="livestock-row">
-              <div class="lv-icon"><i class="bi <?= animalIcon($lv['type']) ?>"></i></div>
-              <div class="lv-info">
-                <div class="lv-tag"><?= htmlspecialchars($lv['tagId']) ?></div>
-                <div class="lv-meta">
-                  <span class="badge <?= healthBadge($lv['healthStatus']) ?>"><?= $lv['healthStatus'] ?></span>
-                  <?php if(!empty($lv['breed'])): ?> &bull; <strong><?= htmlspecialchars($lv['breed']) ?></strong><?php endif; ?>
-                  &bull; <span><?= htmlspecialchars($lv['type']) ?></span>
-                  <?php if(!empty($lv['age'])): ?> &bull; <span><?= (int)$lv['age'] ?> mos</span><?php endif; ?>
-                  <?php if(!empty($lv['weight']) && (float)$lv['weight'] > 0): ?> &bull; <span><?= number_format((float)$lv['weight'], 1) ?> kg</span><?php endif; ?>
-                  <?php if(!empty($lv['vaccinationStatus'])): ?> &bull; <span style="font-size:0.68rem;background:rgba(16,185,129,0.1);color:#059669;padding:1px 6px;border-radius:4px;font-weight:700;">Vax: <?= htmlspecialchars($lv['vaccinationStatus']) ?></span><?php endif; ?>
-                </div>
-                <?php if(!empty($lv['notes'])): ?>
-                <div style="font-size:0.72rem;color:var(--sub);margin-top:0.3rem;line-height:1.35;font-style:italic;">
-                  <i class="bi bi-journal-medical" style="color:var(--pri);"></i> <?= htmlspecialchars($lv['notes']) ?>
-                </div>
-                <?php endif; ?>
-              </div>
-              <div class="lv-qty"><?= number_format($lv['qty']) ?></div>
-              <div class="lv-actions">
-                <button class="btn-edit-sm" onclick="openEditLv(<?= $lv['id'] ?>,'<?= htmlspecialchars(addslashes($lv['tagId'])) ?>','<?= $lv['type'] ?>','<?= htmlspecialchars(addslashes($lv['breed']??'')) ?>',<?= $lv['qty'] ?>,<?= (int)($lv['age']??0) ?>,<?= (float)($lv['weight']??0) ?>,'<?= $lv['healthStatus'] ?>','<?= $lv['vaccinationStatus'] ?>')"><i class="bi bi-pencil-square"></i></button>
-                <button class="btn-danger-sm" onclick="deleteLv(<?= $lv['id'] ?>,'<?= htmlspecialchars(addslashes($lv['tagId'])) ?>')"><i class="bi bi-trash"></i></button>
-              </div>
-            </div>
-            <?php endforeach; ?>
-          </div>
-          <?php else: ?>
-          <div style="text-align:center;padding:1rem;">
-            <button class="btn btn-primary" style="font-size:.82rem;" onclick="openAddLvForFarm(<?= $fData['farm']['id'] ?>)"><i class="bi bi-plus-circle"></i> Add Livestock</button>
-          </div>
-          <?php endif; ?>
+
+        <!-- 3. Species Filter Ribbon -->
+        <div class="lv-ribbon-wrap" id="lvSpeciesRibbon">
+          <button type="button" class="lv-chip-btn active" data-species="all" onclick="filterBySpecies('all', this)">
+            <span>🐾 All Species</span>
+            <span class="lv-chip-count"><?= count($flatLivestock) ?></span>
+          </button>
+          <?php foreach($allAnimalTypes as $at): 
+            $atCount = 0;
+            foreach($flatLivestock as $fl) {
+              if (strcasecmp($fl['type'], $at) === 0) $atCount++;
+            }
+            if ($atCount === 0) continue;
+            $ico = $animalEmoji[$at] ?? '🐾';
+          ?>
+          <button type="button" class="lv-chip-btn" data-species="<?= strtolower($at) ?>" onclick="filterBySpecies('<?= strtolower($at) ?>', this)">
+            <span><?= $ico ?> <?= $at ?></span>
+            <span class="lv-chip-count"><?= $atCount ?></span>
+          </button>
+          <?php endforeach; ?>
         </div>
-        <?php endforeach; ?>
+
+        <!-- 4. Interactive Toolbar -->
+        <div class="lv-toolbar-card">
+          <div class="lv-search-box">
+            <i class="bi bi-search"></i>
+            <input type="text" class="lv-search-input" id="lvSearchInput" placeholder="Search Tag ID, breed, farm, notes…" oninput="filterLivestock()" autocomplete="off">
+            <button type="button" class="lv-search-clear" id="lvSearchClear" onclick="clearLvSearch()" title="Clear search">
+              <i class="bi bi-x-circle-fill"></i>
+            </button>
+          </div>
+
+          <div class="lv-filters-row">
+            <select class="lv-select" id="lvFarmFilter" onchange="filterLivestock()">
+              <option value="all">All Farms (<?= count($farmsData) ?>)</option>
+              <?php foreach($farmsData as $f): ?>
+              <option value="<?= $f['id'] ?>"><?= htmlspecialchars($f['name']) ?></option>
+              <?php endforeach; ?>
+            </select>
+
+            <select class="lv-select" id="lvHealthFilter" onchange="filterLivestock()">
+              <option value="all">All Health Conditions</option>
+              <option value="Healthy">🟢 Healthy</option>
+              <option value="Sick">🔴 Sick / Treatment</option>
+              <option value="Recovered">🔵 Recovered</option>
+              <option value="Deceased">⚪ Deceased</option>
+            </select>
+
+            <div class="lv-view-toggles">
+              <button type="button" class="lv-view-btn active" id="lvBtnGrid" onclick="setLvView('grid')" title="Card Grid View">
+                <i class="bi bi-grid-fill"></i> Cards
+              </button>
+              <button type="button" class="lv-view-btn" id="lvBtnTable" onclick="setLvView('table')" title="Dense Table View">
+                <i class="bi bi-table"></i> Table
+              </button>
+              <button type="button" class="lv-view-btn" id="lvBtnFarm" onclick="setLvView('farm')" title="Grouped by Farm">
+                <i class="bi bi-folder2-open"></i> By Farm
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. View A: Card Grid View -->
+        <div id="lvGridView" class="lv-grid">
+          <?php foreach($flatLivestock as $lv): 
+            $theme = getAnimalTheme($lv['type']);
+            $h = $lv['healthStatus'] ?? 'Healthy';
+            $v = $lv['vaccinationStatus'] ?? 'None';
+            $pillClass = 'lv-pill-' . strtolower($h);
+            $vClass = 'lv-vax-' . strtolower($v);
+          ?>
+          <div class="lv-card"
+               data-id="<?= $lv['id'] ?>"
+               data-tag="<?= htmlspecialchars(strtolower($lv['tagId'])) ?>"
+               data-tag-raw="<?= htmlspecialchars($lv['tagId']) ?>"
+               data-species="<?= htmlspecialchars(strtolower($lv['type'])) ?>"
+               data-species-raw="<?= htmlspecialchars($lv['type']) ?>"
+               data-breed="<?= htmlspecialchars(strtolower($lv['breed']??'')) ?>"
+               data-breed-raw="<?= htmlspecialchars($lv['breed']??'') ?>"
+               data-farm-id="<?= $lv['farmId'] ?>"
+               data-farm-name="<?= htmlspecialchars(strtolower($lv['farmName'])) ?>"
+               data-farm-name-raw="<?= htmlspecialchars($lv['farmName']) ?>"
+               data-health="<?= htmlspecialchars($h) ?>"
+               data-notes="<?= htmlspecialchars(strtolower($lv['notes']??'')) ?>"
+               data-notes-raw="<?= htmlspecialchars($lv['notes']??'') ?>"
+               data-qty="<?= (int)$lv['qty'] ?>"
+               data-age="<?= htmlspecialchars($lv['age']??'') ?>"
+               data-weight="<?= htmlspecialchars($lv['weight']??'') ?>">
+            
+            <div class="lv-card-top">
+              <div class="lv-avatar" style="background:<?= $theme['bg'] ?>;color:<?= $theme['color'] ?>;">
+                <?= $animalEmoji[$lv['type']] ?? '🐾' ?>
+              </div>
+              <div class="lv-card-main">
+                <div class="lv-card-title" title="<?= htmlspecialchars($lv['breed'] ?: $lv['type']) ?>">
+                  <span><?= htmlspecialchars($lv['breed'] ?: $lv['type']) ?></span>
+                  <span style="font-size:0.7rem;font-weight:600;color:var(--sub);">&bull; <?= htmlspecialchars($lv['type']) ?></span>
+                </div>
+                <div class="lv-farm-badge">
+                  <i class="bi bi-geo-alt-fill" style="color:var(--acc);font-size:0.75rem;"></i>
+                  <span><?= htmlspecialchars($lv['farmName']) ?></span>
+                  <span class="badge <?= statusBadge($lv['farmStatus']) ?>" style="font-size:0.6rem;padding:1px 5px;"><?= $lv['farmStatus'] ?></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="lv-tag-strip">
+              <span class="lv-tag-chip" onclick="copyTagId('<?= htmlspecialchars(addslashes($lv['tagId'])) ?>', this)" title="Click to copy Tag ID">
+                <i class="bi bi-tag-fill"></i>
+                <?= htmlspecialchars($lv['tagId']) ?>
+                <i class="bi bi-copy" style="font-size:0.7rem;opacity:0.6;margin-left:2px;"></i>
+              </span>
+              <span class="lv-qty-pill">
+                <i class="bi bi-collection"></i> <?= number_format($lv['qty']) ?> <?= (int)$lv['qty'] === 1 ? 'Head' : 'Heads' ?>
+              </span>
+            </div>
+
+            <div class="lv-vitals-grid">
+              <div class="lv-vital-cell">
+                <span class="lv-vital-lbl">Condition</span>
+                <span class="lv-pill <?= $pillClass ?>">
+                  <span class="lv-status-dot lv-status-<?= strtolower($h) ?>"></span>
+                  <?= htmlspecialchars($h) ?>
+                </span>
+              </div>
+              <div class="lv-vital-cell">
+                <span class="lv-vital-lbl">Vaccine</span>
+                <span class="lv-vax-tag <?= $vClass ?>">
+                  <i class="bi <?= $v === 'Complete' ? 'bi-shield-check' : ($v === 'Partial' ? 'bi-shield-shaded' : 'bi-shield-x') ?>"></i>
+                  <?= htmlspecialchars($v) ?>
+                </span>
+              </div>
+              <div class="lv-vital-cell">
+                <span class="lv-vital-lbl">Age</span>
+                <span class="lv-vital-val"><?= !empty($lv['age']) ? ((float)$lv['age'] . ' yrs') : '<span style="color:var(--sub);font-weight:400;">—</span>' ?></span>
+              </div>
+              <div class="lv-vital-cell">
+                <span class="lv-vital-lbl">Weight</span>
+                <span class="lv-vital-val"><?= (!empty($lv['weight']) && (float)$lv['weight'] > 0) ? (number_format((float)$lv['weight'], 1) . ' kg') : '<span style="color:var(--sub);font-weight:400;">—</span>' ?></span>
+              </div>
+            </div>
+
+            <?php if(!empty($lv['notes'])): ?>
+            <div class="lv-notes-callout" title="Medical and observation notes">
+              <i class="bi bi-journal-medical" style="color:#059669;margin-right:4px;"></i>
+              <?= htmlspecialchars($lv['notes']) ?>
+            </div>
+            <?php endif; ?>
+
+            <div class="lv-card-footer">
+              <div style="font-size:0.7rem;color:var(--sub);">
+                <i class="bi bi-clock-history"></i> <?= !empty($lv['createdAt']) ? date('M j, Y', strtotime($lv['createdAt'])) : 'Active' ?>
+              </div>
+              <div class="lv-card-btns">
+                <?php if($h === 'Sick'): ?>
+                <button type="button" class="lv-action-btn warn" onclick="reportIssueForAnimal(<?= $lv['farmId'] ?>, '<?= $lv['type'] ?>', '<?= htmlspecialchars(addslashes($lv['tagId'])) ?>', '<?= htmlspecialchars(addslashes($lv['breed']??'')) ?>')" title="Report health incident to DA">
+                  <i class="bi bi-exclamation-triangle-fill"></i> Alert
+                </button>
+                <?php endif; ?>
+                <button type="button" class="lv-action-btn" onclick="openEditLv(<?= $lv['id'] ?>,'<?= htmlspecialchars(addslashes($lv['tagId'])) ?>','<?= $lv['type'] ?>','<?= htmlspecialchars(addslashes($lv['breed']??'')) ?>',<?= (int)$lv['qty'] ?>,<?= (float)($lv['age']??0) ?>,<?= (float)($lv['weight']??0) ?>,'<?= $lv['healthStatus'] ?>','<?= $lv['vaccinationStatus'] ?>','<?= htmlspecialchars(addslashes($lv['notes']??'')) ?>')" title="Edit details">
+                  <i class="bi bi-pencil-square"></i> Edit
+                </button>
+                <button type="button" class="lv-action-btn danger" onclick="deleteLv(<?= $lv['id'] ?>,'<?= htmlspecialchars(addslashes($lv['tagId'])) ?>')" title="Delete animal record">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
+            </div>
+
+          </div>
+          <?php endforeach; ?>
+        </div>
+
+        <!-- 6. View B: High-Density Table View -->
+        <div id="lvTableView" class="lv-table-card" style="display:none;">
+          <div class="lv-table-wrap">
+            <table class="lv-table">
+              <thead>
+                <tr>
+                  <th>Tag ID</th>
+                  <th>Animal &amp; Breed</th>
+                  <th>Farm</th>
+                  <th style="text-align:center;">Qty</th>
+                  <th>Condition</th>
+                  <th>Vaccination</th>
+                  <th>Age / Weight</th>
+                  <th>Notes</th>
+                  <th style="text-align:right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php foreach($flatLivestock as $lv): 
+                  $theme = getAnimalTheme($lv['type']);
+                  $h = $lv['healthStatus'] ?? 'Healthy';
+                  $v = $lv['vaccinationStatus'] ?? 'None';
+                ?>
+                <tr class="lv-tbl-row"
+                    data-tag="<?= htmlspecialchars(strtolower($lv['tagId'])) ?>"
+                    data-species="<?= htmlspecialchars(strtolower($lv['type'])) ?>"
+                    data-breed="<?= htmlspecialchars(strtolower($lv['breed']??'')) ?>"
+                    data-farm-id="<?= $lv['farmId'] ?>"
+                    data-farm-name="<?= htmlspecialchars(strtolower($lv['farmName'])) ?>"
+                    data-health="<?= htmlspecialchars($h) ?>"
+                    data-notes="<?= htmlspecialchars(strtolower($lv['notes']??'')) ?>">
+                  <td>
+                    <span class="lv-tag-chip" onclick="copyTagId('<?= htmlspecialchars(addslashes($lv['tagId'])) ?>', this)" title="Click to copy">
+                      <?= htmlspecialchars($lv['tagId']) ?>
+                      <i class="bi bi-copy" style="font-size:0.68rem;opacity:0.6;margin-left:2px;"></i>
+                    </span>
+                  </td>
+                  <td>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                      <span style="font-size:1.15rem;"><?= $animalEmoji[$lv['type']] ?? '🐾' ?></span>
+                      <div>
+                        <div style="font-weight:700;color:var(--txt);"><?= htmlspecialchars($lv['breed'] ?: $lv['type']) ?></div>
+                        <div style="font-size:0.7rem;color:var(--sub);"><?= htmlspecialchars($lv['type']) ?></div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div style="font-weight:600;font-size:0.8rem;color:var(--txt);"><?= htmlspecialchars($lv['farmName']) ?></div>
+                    <div style="font-size:0.7rem;color:var(--sub);"><?= htmlspecialchars($lv['farmType']) ?></div>
+                  </td>
+                  <td style="text-align:center;font-weight:800;color:var(--acc2);">
+                    <?= number_format($lv['qty']) ?>
+                  </td>
+                  <td>
+                    <span class="lv-pill lv-pill-<?= strtolower($h) ?>">
+                      <span class="lv-status-dot lv-status-<?= strtolower($h) ?>"></span>
+                      <?= htmlspecialchars($h) ?>
+                    </span>
+                  </td>
+                  <td>
+                    <span class="lv-vax-tag lv-vax-<?= strtolower($v) ?>">
+                      <?= htmlspecialchars($v) ?>
+                    </span>
+                  </td>
+                  <td style="font-size:0.75rem;color:var(--sub);">
+                    <div><?= !empty($lv['age']) ? ((float)$lv['age'] . ' yrs') : '—' ?></div>
+                    <div><?= (!empty($lv['weight']) && (float)$lv['weight'] > 0) ? (number_format((float)$lv['weight'], 1) . ' kg') : '—' ?></div>
+                  </td>
+                  <td style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:0.73rem;color:var(--sub);">
+                    <?= !empty($lv['notes']) ? htmlspecialchars($lv['notes']) : '<span style="opacity:0.4;">—</span>' ?>
+                  </td>
+                  <td style="text-align:right;">
+                    <div style="display:inline-flex;gap:4px;">
+                      <?php if($h === 'Sick'): ?>
+                      <button type="button" class="lv-action-btn warn" onclick="reportIssueForAnimal(<?= $lv['farmId'] ?>, '<?= $lv['type'] ?>', '<?= htmlspecialchars(addslashes($lv['tagId'])) ?>', '<?= htmlspecialchars(addslashes($lv['breed']??'')) ?>')" title="Alert">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                      </button>
+                      <?php endif; ?>
+                      <button type="button" class="lv-action-btn" onclick="openEditLv(<?= $lv['id'] ?>,'<?= htmlspecialchars(addslashes($lv['tagId'])) ?>','<?= $lv['type'] ?>','<?= htmlspecialchars(addslashes($lv['breed']??'')) ?>',<?= (int)$lv['qty'] ?>,<?= (float)($lv['age']??0) ?>,<?= (float)($lv['weight']??0) ?>,'<?= $lv['healthStatus'] ?>','<?= $lv['vaccinationStatus'] ?>','<?= htmlspecialchars(addslashes($lv['notes']??'')) ?>')">
+                        <i class="bi bi-pencil-square"></i>
+                      </button>
+                      <button type="button" class="lv-action-btn danger" onclick="deleteLv(<?= $lv['id'] ?>,'<?= htmlspecialchars(addslashes($lv['tagId'])) ?>')">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 7. View C: Farm Grouped View -->
+        <div id="lvFarmView" style="display:none;">
+          <?php foreach($livestockByFarm as $fId => $fData):
+            $fAnimals = $fData['livestock'];
+            $farmTotal = array_sum(array_column($fAnimals, 'qty'));
+          ?>
+          <div class="lv-farm-card" data-farm-id="<?= $fId ?>">
+            <div class="lv-farm-header">
+              <div class="lv-farm-avatar">
+                <?= strtoupper(substr($fData['farm']['name'], 0, 1)) ?>
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div class="lv-farm-title"><?= htmlspecialchars($fData['farm']['name']) ?></div>
+                <div class="lv-farm-subtitle">
+                  <span class="badge <?= statusBadge($fData['farm']['status']) ?>"><?= $fData['farm']['status'] ?></span>
+                  <span style="font-size:0.73rem;color:var(--sub);"><?= htmlspecialchars($fData['farm']['type']) ?></span>
+                  <?php if(!empty($fData['farm']['address'])): ?>
+                  <span style="font-size:0.73rem;color:var(--sub);">&bull; <?= htmlspecialchars($fData['farm']['address']) ?></span>
+                  <?php endif; ?>
+                </div>
+              </div>
+              <div class="lv-farm-count-badge">
+                <div class="lv-farm-count-num"><?= number_format($farmTotal) ?></div>
+                <div class="lv-farm-count-lbl">Head<?= $farmTotal === 1 ? '' : 's' ?></div>
+              </div>
+            </div>
+
+            <?php if(!empty($fAnimals)): ?>
+            <div class="lv-grid" style="margin-bottom:0;">
+              <?php foreach($fAnimals as $lv): 
+                $theme = getAnimalTheme($lv['type']);
+                $h = $lv['healthStatus'] ?? 'Healthy';
+                $v = $lv['vaccinationStatus'] ?? 'None';
+              ?>
+              <div class="lv-card"
+                   data-id="<?= $lv['id'] ?>"
+                   data-tag="<?= htmlspecialchars(strtolower($lv['tagId'])) ?>"
+                   data-species="<?= htmlspecialchars(strtolower($lv['type'])) ?>"
+                   data-breed="<?= htmlspecialchars(strtolower($lv['breed']??'')) ?>"
+                   data-farm-id="<?= $fId ?>"
+                   data-farm-name="<?= htmlspecialchars(strtolower($fData['farm']['name'])) ?>"
+                   data-health="<?= htmlspecialchars($h) ?>"
+                   data-notes="<?= htmlspecialchars(strtolower($lv['notes']??'')) ?>">
+                
+                <div class="lv-card-top">
+                  <div class="lv-avatar" style="background:<?= $theme['bg'] ?>;color:<?= $theme['color'] ?>;">
+                    <?= $animalEmoji[$lv['type']] ?? '🐾' ?>
+                  </div>
+                  <div class="lv-card-main">
+                    <div class="lv-card-title"><?= htmlspecialchars($lv['breed'] ?: $lv['type']) ?></div>
+                    <div style="font-size:0.72rem;color:var(--sub);"><?= htmlspecialchars($lv['type']) ?></div>
+                  </div>
+                </div>
+
+                <div class="lv-tag-strip">
+                  <span class="lv-tag-chip" onclick="copyTagId('<?= htmlspecialchars(addslashes($lv['tagId'])) ?>', this)">
+                    <?= htmlspecialchars($lv['tagId']) ?>
+                  </span>
+                  <span class="lv-qty-pill"><?= number_format($lv['qty']) ?> Head</span>
+                </div>
+
+                <div class="lv-vitals-grid">
+                  <div class="lv-vital-cell">
+                    <span class="lv-vital-lbl">Condition</span>
+                    <span class="lv-pill lv-pill-<?= strtolower($h) ?>">
+                      <span class="lv-status-dot lv-status-<?= strtolower($h) ?>"></span>
+                      <?= htmlspecialchars($h) ?>
+                    </span>
+                  </div>
+                  <div class="lv-vital-cell">
+                    <span class="lv-vital-lbl">Vaccine</span>
+                    <span class="lv-vax-tag lv-vax-<?= strtolower($v) ?>"><?= htmlspecialchars($v) ?></span>
+                  </div>
+                </div>
+
+                <div class="lv-card-footer">
+                  <span style="font-size:0.7rem;color:var(--sub);">Lot #<?= $lv['id'] ?></span>
+                  <div class="lv-card-btns">
+                    <button type="button" class="lv-action-btn" onclick="openEditLv(<?= $lv['id'] ?>,'<?= htmlspecialchars(addslashes($lv['tagId'])) ?>','<?= $lv['type'] ?>','<?= htmlspecialchars(addslashes($lv['breed']??'')) ?>',<?= (int)$lv['qty'] ?>,<?= (float)($lv['age']??0) ?>,<?= (float)($lv['weight']??0) ?>,'<?= $lv['healthStatus'] ?>','<?= $lv['vaccinationStatus'] ?>','<?= htmlspecialchars(addslashes($lv['notes']??'')) ?>')">
+                      <i class="bi bi-pencil-square"></i>
+                    </button>
+                    <button type="button" class="lv-action-btn danger" onclick="deleteLv(<?= $lv['id'] ?>,'<?= htmlspecialchars(addslashes($lv['tagId'])) ?>')">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <?php endforeach; ?>
+            </div>
+            <?php else: ?>
+            <div style="text-align:center;padding:1.5rem 1rem;background:#f8fafc;border-radius:12px;border:1px dashed var(--border);">
+              <p style="font-size:0.8rem;color:var(--sub);margin-bottom:0.75rem;">No livestock assigned to this farm yet.</p>
+              <button type="button" class="btn btn-primary" style="font-size:0.78rem;padding:0.45rem 0.9rem;" onclick="openAddLvForFarm(<?= $fId ?>)">
+                <i class="bi bi-plus-circle"></i> Add Animal to This Farm
+              </button>
+            </div>
+            <?php endif; ?>
+          </div>
+          <?php endforeach; ?>
+        </div>
+
+        <!-- 8. No Matching Results State -->
+        <div id="lvNoResults" class="card" style="display:none;text-align:center;padding:2.5rem 1rem;border-radius:18px;">
+          <div style="width:60px;height:60px;margin:0 auto 1rem;background:#f1f5f9;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--sub);font-size:1.6rem;">
+            <i class="bi bi-search"></i>
+          </div>
+          <h4 style="font-weight:800;color:var(--txt);margin-bottom:0.35rem;">No Matching Animals Found</h4>
+          <p style="font-size:0.82rem;color:var(--sub);max-width:380px;margin:0 auto 1.25rem;">
+            No animals matched your search query or active filters. Try adjusting your search term or reset all filters.
+          </p>
+          <button type="button" class="btn btn-primary" style="font-size:0.8rem;padding:0.5rem 1rem;" onclick="resetLvFilters()">
+            <i class="bi bi-arrow-counterclockwise"></i> Reset Filters
+          </button>
+        </div>
+
         <?php endif; ?>
       </div>
 
@@ -2917,24 +4044,36 @@ body:not(.sidebar-autohide) .btn-drawer-pin {
     <form id="lvEditForm">
       <input type="hidden" id="lvEditId" name="livestock_id">
       <div class="modal-body">
-        <div class="form-group"><label class="form-label">Tag ID</label><input type="text" class="form-input" id="lvEditTag" name="tagId" required></div>
-        <div class="form-group"><label class="form-label">Type</label>
-          <select class="form-select" id="lvEditType" name="type">
+        <div class="form-group"><label class="form-label">Tag ID *</label><input type="text" class="form-input" id="lvEditTag" name="tagId" required></div>
+        <div class="form-group"><label class="form-label">Type *</label>
+          <select class="form-select" id="lvEditType" name="type" required>
             <?php foreach($allAnimalTypes as $at): ?><option><?= $at ?></option><?php endforeach; ?>
           </select>
         </div>
-        <div class="form-group"><label class="form-label">Breed</label><input type="text" class="form-input" id="lvEditBreed" name="breed"></div>
-        <div class="form-group"><label class="form-label">Quantity</label><input type="number" class="form-input" id="lvEditQty" name="qty" min="1"></div>
-        <div class="form-group"><label class="form-label">Age (years)</label><input type="number" class="form-input" id="lvEditAge" name="age" min="0"></div>
+        <div class="form-group"><label class="form-label">Breed</label><input type="text" class="form-input" id="lvEditBreed" name="breed" placeholder="e.g. Landrace, Holstein, Native"></div>
+        <div class="form-group"><label class="form-label">Quantity *</label><input type="number" class="form-input" id="lvEditQty" name="qty" min="1" required></div>
+        <div class="form-group"><label class="form-label">Age (years)</label><input type="number" class="form-input" id="lvEditAge" name="age" min="0" step="0.1"></div>
         <div class="form-group"><label class="form-label">Weight (kg)</label><input type="number" class="form-input" id="lvEditWeight" name="weight" step="0.1"></div>
         <div class="form-group"><label class="form-label">Health Status</label>
-          <select class="form-select" id="lvEditHealth" name="healthStatus"><option>Healthy</option><option>Sick</option><option>Recovered</option><option>Deceased</option></select>
+          <select class="form-select" id="lvEditHealth" name="healthStatus">
+            <option value="Healthy">Healthy</option>
+            <option value="Sick">Sick</option>
+            <option value="Recovered">Recovered</option>
+            <option value="Deceased">Deceased</option>
+          </select>
         </div>
         <div class="form-group"><label class="form-label">Vaccination</label>
-          <select class="form-select" id="lvEditVacc" name="vaccinationStatus"><option>None</option><option>Partial</option><option>Complete</option></select>
+          <select class="form-select" id="lvEditVacc" name="vaccinationStatus">
+            <option value="None">None</option>
+            <option value="Partial">Partial</option>
+            <option value="Complete">Complete</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Medical Notes / Treatment History</label>
+          <textarea class="form-input" id="lvEditNotes" name="notes" rows="2" placeholder="e.g. Dewormed, medications, observation notes..."></textarea>
         </div>
       </div>
-      <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="closeModal('lvEditModal')">Cancel</button><button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save</button></div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="closeModal('lvEditModal')">Cancel</button><button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save Changes</button></div>
     </form>
   </div>
 </div>
@@ -2959,14 +4098,37 @@ body:not(.sidebar-autohide) .btn-drawer-pin {
           </select>
         </div>
         <div class="form-group"><label class="form-label">Tag ID * <span style="font-size:.7rem;color:var(--sub);font-weight:400;">(auto-filled, editable)</span></label>
-          <input type="text" class="form-input" id="lvAddTagId" name="tagId" required placeholder="Select type first">
+          <div style="display:flex;gap:6px;">
+            <input type="text" class="form-input" id="lvAddTagId" name="tagId" required placeholder="Select animal type or click generate">
+            <button type="button" class="btn btn-secondary" style="padding:0.45rem 0.8rem;font-size:0.78rem;flex-shrink:0;" onclick="generateRandomTagId()" title="Generate Random Tag ID">
+              <i class="bi bi-arrow-clockwise"></i> Gen
+            </button>
+          </div>
         </div>
-        <div class="form-group"><label class="form-label">Breed</label><input type="text" class="form-input" name="breed" placeholder="e.g. Holstein"></div>
+        <div class="form-group"><label class="form-label">Breed</label><input type="text" class="form-input" name="breed" placeholder="e.g. Landrace, Holstein, Native"></div>
         <div class="form-group"><label class="form-label">Quantity *</label><input type="number" class="form-input" name="qty" value="1" min="1" required></div>
-        <div class="form-group"><label class="form-label">Age (years)</label><input type="number" class="form-input" name="age" min="0"></div>
-        <div class="form-group"><label class="form-label">Weight (kg)</label><input type="number" class="form-input" name="weight" step="0.1"></div>
+        <div class="form-group"><label class="form-label">Age (years)</label><input type="number" class="form-input" name="age" min="0" step="0.1" placeholder="e.g. 1.5"></div>
+        <div class="form-group"><label class="form-label">Weight (kg)</label><input type="number" class="form-input" name="weight" step="0.1" placeholder="e.g. 75.0"></div>
+        <div class="form-group"><label class="form-label">Health Status</label>
+          <select class="form-select" name="healthStatus">
+            <option value="Healthy" selected>Healthy</option>
+            <option value="Sick">Sick</option>
+            <option value="Recovered">Recovered</option>
+            <option value="Deceased">Deceased</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Vaccination Status</label>
+          <select class="form-select" name="vaccinationStatus">
+            <option value="None" selected>None</option>
+            <option value="Partial">Partial</option>
+            <option value="Complete">Complete</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Medical Notes / Remarks</label>
+          <textarea class="form-input" name="notes" rows="2" placeholder="e.g. Dewormed, booster schedule, vitamins..."></textarea>
+        </div>
       </div>
-      <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="closeModal('lvAddModal')">Cancel</button><button type="submit" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add</button></div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="closeModal('lvAddModal')">Cancel</button><button type="submit" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add Livestock</button></div>
     </form>
   </div>
 </div>
@@ -3228,13 +4390,20 @@ function removeAnimalRow(btn,type){
   setTimeout(()=>{row.remove();addedAnimalTypes.delete(type);},200);
 }
 
-// ── AUTO-FILL TAG ID in Add Livestock Modal ───────────────────────────────────
+// ── AUTO-FILL & GENERATE TAG ID ──────────────────────────────────────────────
 function autoFillTagId(){
   const type=document.getElementById('lvAddType').value;
   if(!type){document.getElementById('lvAddTagId').value='';return;}
   const prefix=type.substring(0,3).toUpperCase();
   const ts=String(Date.now()).slice(-4);
   document.getElementById('lvAddTagId').value=`TAG-${prefix}-${ts}`;
+}
+function generateRandomTagId(){
+  const typeEl=document.getElementById('lvAddType');
+  const type=(typeEl && typeEl.value) ? typeEl.value : 'LV';
+  const prefix=type.substring(0,3).toUpperCase();
+  const rand=Math.floor(1000 + Math.random()*9000);
+  document.getElementById('lvAddTagId').value=`TAG-${prefix}-${rand}`;
 }
 
 // ── INCIDENT HELPERS ──────────────────────────────────────────────────────────
@@ -3243,14 +4412,234 @@ function toggleDTag(el,d){el.classList.toggle('active');const f=document.querySe
 function selectSeverity(card,val){document.querySelectorAll('.severity-card').forEach(c=>c.classList.remove('active'));card.classList.add('active');document.getElementById('incSeverityVal').value=val;}
 function resetIncForm(){document.getElementById('incidentForm').reset();selectSeverity(document.querySelector('.severity-card'),'Low');document.getElementById('diseaseTags').style.display='none';document.getElementById('incGpsBadge').style.display='none';document.getElementById('incPhoto').value='';document.getElementById('incLat').value='';document.getElementById('incLng').value='';}
 
+// ── MODERN LIVESTOCK APP CONTROLLER ───────────────────────────────────────────
+let currentSpeciesFilter = 'all';
+let currentLvView = 'grid';
+
+function setLvView(mode){
+  currentLvView = mode;
+  document.querySelectorAll('.lv-view-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('lvBtn' + mode.charAt(0).toUpperCase() + mode.slice(1));
+  if(btn) btn.classList.add('active');
+  
+  const gView = document.getElementById('lvGridView');
+  const tView = document.getElementById('lvTableView');
+  const fView = document.getElementById('lvFarmView');
+  
+  if(gView) gView.style.display = mode === 'grid' ? 'grid' : 'none';
+  if(tView) tView.style.display = mode === 'table' ? 'block' : 'none';
+  if(fView) fView.style.display = mode === 'farm' ? 'block' : 'none';
+  
+  filterLivestock();
+}
+
+function filterBySpecies(species, btn){
+  currentSpeciesFilter = (species || 'all').toLowerCase();
+  document.querySelectorAll('#lvSpeciesRibbon .lv-chip-btn').forEach(b => b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  filterLivestock();
+}
+
+function clearLvSearch(){
+  const inp = document.getElementById('lvSearchInput');
+  if(inp) inp.value = '';
+  const clr = document.getElementById('lvSearchClear');
+  if(clr) clr.style.display = 'none';
+  filterLivestock();
+}
+
+function resetLvFilters(){
+  const inp = document.getElementById('lvSearchInput');
+  if(inp) inp.value = '';
+  const clr = document.getElementById('lvSearchClear');
+  if(clr) clr.style.display = 'none';
+  const farmSel = document.getElementById('lvFarmFilter');
+  if(farmSel) farmSel.value = 'all';
+  const healthSel = document.getElementById('lvHealthFilter');
+  if(healthSel) healthSel.value = 'all';
+  const allChip = document.querySelector('#lvSpeciesRibbon .lv-chip-btn[data-species="all"]');
+  filterBySpecies('all', allChip);
+}
+
+function filterLivestock(){
+  const searchInput = document.getElementById('lvSearchInput');
+  const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+  const clearBtn = document.getElementById('lvSearchClear');
+  if(clearBtn) clearBtn.style.display = query.length > 0 ? 'block' : 'none';
+  
+  const farmFilter = document.getElementById('lvFarmFilter') ? document.getElementById('lvFarmFilter').value : 'all';
+  const healthFilter = document.getElementById('lvHealthFilter') ? document.getElementById('lvHealthFilter').value : 'all';
+  
+  let visibleCount = 0;
+  
+  // 1. Grid Cards Filter
+  const cards = document.querySelectorAll('#lvGridView .lv-card');
+  cards.forEach(card => {
+    const tag = (card.dataset.tag || '').toLowerCase();
+    const species = (card.dataset.species || '').toLowerCase();
+    const breed = (card.dataset.breed || '').toLowerCase();
+    const farmId = card.dataset.farmId || '';
+    const farmName = (card.dataset.farmName || '').toLowerCase();
+    const health = card.dataset.health || '';
+    const notes = (card.dataset.notes || '').toLowerCase();
+    
+    const matchesSearch = !query || tag.includes(query) || species.includes(query) || breed.includes(query) || farmName.includes(query) || notes.includes(query);
+    const matchesSpecies = currentSpeciesFilter === 'all' || species === currentSpeciesFilter;
+    const matchesFarm = farmFilter === 'all' || farmId === farmFilter;
+    const matchesHealth = healthFilter === 'all' || health === healthFilter;
+    
+    const show = matchesSearch && matchesSpecies && matchesFarm && matchesHealth;
+    card.style.display = show ? 'flex' : 'none';
+    if(show) visibleCount++;
+  });
+  
+  // 2. Table Rows Filter
+  const rows = document.querySelectorAll('#lvTableView tbody tr.lv-tbl-row');
+  rows.forEach(tr => {
+    const tag = (tr.dataset.tag || '').toLowerCase();
+    const species = (tr.dataset.species || '').toLowerCase();
+    const breed = (tr.dataset.breed || '').toLowerCase();
+    const farmId = tr.dataset.farmId || '';
+    const farmName = (tr.dataset.farmName || '').toLowerCase();
+    const health = tr.dataset.health || '';
+    const notes = (tr.dataset.notes || '').toLowerCase();
+    
+    const matchesSearch = !query || tag.includes(query) || species.includes(query) || breed.includes(query) || farmName.includes(query) || notes.includes(query);
+    const matchesSpecies = currentSpeciesFilter === 'all' || species === currentSpeciesFilter;
+    const matchesFarm = farmFilter === 'all' || farmId === farmFilter;
+    const matchesHealth = healthFilter === 'all' || health === healthFilter;
+    
+    tr.style.display = (matchesSearch && matchesSpecies && matchesFarm && matchesHealth) ? '' : 'none';
+  });
+
+  // 3. Farm Grouped View Filter
+  const farmGroups = document.querySelectorAll('#lvFarmView .lv-farm-card');
+  farmGroups.forEach(group => {
+    const gFarmId = group.dataset.farmId || '';
+    const matchesFarm = farmFilter === 'all' || gFarmId === farmFilter;
+    let groupVisibleItems = 0;
+    
+    const gCards = group.querySelectorAll('.lv-card');
+    gCards.forEach(c => {
+      const tag = (c.dataset.tag || '').toLowerCase();
+      const species = (c.dataset.species || '').toLowerCase();
+      const breed = (c.dataset.breed || '').toLowerCase();
+      const health = c.dataset.health || '';
+      const notes = (c.dataset.notes || '').toLowerCase();
+      
+      const matchesSearch = !query || tag.includes(query) || species.includes(query) || breed.includes(query) || notes.includes(query);
+      const matchesSpecies = currentSpeciesFilter === 'all' || species === currentSpeciesFilter;
+      const matchesHealth = healthFilter === 'all' || health === healthFilter;
+      
+      const show = matchesSearch && matchesSpecies && matchesHealth;
+      c.style.display = show ? 'flex' : 'none';
+      if(show) groupVisibleItems++;
+    });
+    
+    group.style.display = (matchesFarm && (groupVisibleItems > 0 || gCards.length === 0)) ? 'block' : 'none';
+  });
+  
+  // 4. No Results Alert
+  const noRes = document.getElementById('lvNoResults');
+  if(noRes) {
+    noRes.style.display = visibleCount === 0 ? 'block' : 'none';
+  }
+}
+
+function copyTagId(tagId, el){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(tagId).then(()=>{
+      showToast(`Copied Tag ID: ${tagId}`, 'success');
+      if(el){
+        const orig = el.innerHTML;
+        el.innerHTML = '<i class="bi bi-check2"></i> Copied!';
+        setTimeout(()=>{ el.innerHTML = orig; }, 1800);
+      }
+    }).catch(()=>{ fallbackCopy(tagId); });
+  } else {
+    fallbackCopy(tagId);
+  }
+}
+function fallbackCopy(text){
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+  showToast(`Copied Tag ID: ${text}`, 'success');
+}
+
+function reportIssueForAnimal(farmId, type, tagId, breed){
+  navTo('incident');
+  const farmSel = document.querySelector('#incidentForm select[name="farm_id"]');
+  if(farmSel) farmSel.value = farmId;
+  const incTypeSel = document.querySelector('#incidentForm select[name="incident_type"]');
+  if(incTypeSel) {
+    incTypeSel.value = 'Sick';
+    if(typeof updateDiseaseTags === 'function') updateDiseaseTags('Sick');
+  }
+  const lvTypeSel = document.querySelector('#incidentForm select[name="livestock_type"]');
+  if(lvTypeSel) lvTypeSel.value = type;
+  const titleInput = document.querySelector('#incidentForm input[name="title"]');
+  if(titleInput) titleInput.value = `Health issue reported for ${type} (${tagId}${breed ? ' - ' + breed : ''})`;
+  const sevCard = document.querySelectorAll('.severity-card');
+  if(sevCard && sevCard[1]) selectSeverity(sevCard[1], 'Medium');
+  showToast(`Incident draft started for ${tagId}`, 'info');
+}
+
+function exportLivestockCSV(){
+  const cards = document.querySelectorAll('#lvGridView .lv-card');
+  if(!cards.length){
+    showToast('No livestock records to export', 'warn');
+    return;
+  }
+  const headers = ['Tag ID', 'Species', 'Breed', 'Farm', 'Quantity', 'Age (yrs)', 'Weight (kg)', 'Health Status', 'Notes'];
+  const rows = [];
+  cards.forEach(c => {
+    const tag = c.dataset.tagRaw || c.dataset.tag || '';
+    const species = c.dataset.speciesRaw || c.dataset.species || '';
+    const breed = c.dataset.breedRaw || c.dataset.breed || '';
+    const farm = c.dataset.farmNameRaw || c.dataset.farmName || '';
+    const qty = c.dataset.qty || '1';
+    const age = c.dataset.age || '';
+    const weight = c.dataset.weight || '';
+    const health = c.dataset.health || '';
+    const notes = c.dataset.notesRaw || c.dataset.notes || '';
+    rows.push([
+      `"${tag.replace(/"/g, '""')}"`,
+      `"${species.replace(/"/g, '""')}"`,
+      `"${breed.replace(/"/g, '""')}"`,
+      `"${farm.replace(/"/g, '""')}"`,
+      qty,
+      `"${age}"`,
+      `"${weight}"`,
+      `"${health}"`,
+      `"${notes.replace(/"/g, '""')}"`
+    ]);
+  });
+  const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map(r=>r.join(','))].join('\n');
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement('a');
+  link.setAttribute('href', encodedUri);
+  link.setAttribute('download', `AgriTrace_Livestock_${new Date().toISOString().slice(0,10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  showToast('Livestock CSV exported successfully!', 'success');
+}
+
 // ── LIVESTOCK MODALS ──────────────────────────────────────────────────────────
-function openEditLv(id,tagId,type,breed,qty,age,weight,health,vacc){
+function openEditLv(id,tagId,type,breed,qty,age,weight,health,vacc,notes){
   document.getElementById('lvEditTitle').innerHTML='<i class="bi bi-pencil-square"></i> '+tagId;
   document.getElementById('lvEditId').value=id;document.getElementById('lvEditTag').value=tagId;
   document.getElementById('lvEditType').value=type;document.getElementById('lvEditBreed').value=breed||'';
   document.getElementById('lvEditQty').value=qty;document.getElementById('lvEditAge').value=age||'';
   document.getElementById('lvEditWeight').value=weight||'';document.getElementById('lvEditHealth').value=health;
-  document.getElementById('lvEditVacc').value=vacc;openModal('lvEditModal');
+  document.getElementById('lvEditVacc').value=vacc;
+  const noteEl = document.getElementById('lvEditNotes');
+  if(noteEl) noteEl.value = notes || '';
+  openModal('lvEditModal');
 }
 function openAddLvForFarm(farmId){document.getElementById('lvAddForm').reset();document.getElementById('lvAddFarm').value=farmId;document.getElementById('lvAddTagId').value='';openModal('lvAddModal');}
 function deleteLv(id,tagId){
