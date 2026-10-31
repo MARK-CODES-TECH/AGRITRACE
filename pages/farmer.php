@@ -2394,14 +2394,26 @@ textarea.form-input{resize:none;line-height:1.5;}
 /* ═══════════════════════════════════════════════════════════════════════════
    MODERN SAAS PROFILE CARD STYLES
    ═══════════════════════════════════════════════════════════════════════════ */
+#pg-profile {
+  min-height: 80vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 12%, rgba(16, 185, 129, 0.06) 0%, transparent 65%);
+  padding: 1.5rem 1rem 3rem;
+}
 .profile-card-wrapper {
   max-width: 560px;
-  margin: 1.5rem auto 2.5rem;
+  width: 100%;
+  margin: 1rem auto 2.5rem;
   background: #ffffff;
   border-radius: 24px;
   box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.09), 0 0 0 1px rgba(0, 0, 0, 0.05);
   overflow: hidden;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.profile-card-wrapper:hover {
+  box-shadow: 0 20px 48px -12px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.06);
 }
 .profile-card-header {
   background: linear-gradient(145deg, #064e3b 0%, #047857 45%, #059669 100%);
@@ -2481,6 +2493,43 @@ textarea.form-input{resize:none;line-height:1.5;}
   gap: 6px;
   position: relative;
   z-index: 1;
+}
+.profile-verified-chip {
+  background: #10b981;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.4);
+  margin-left: 6px;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+.profile-copy-btn {
+  opacity: 0;
+  background: none;
+  border: none;
+  color: #059669;
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 2px 5px;
+  border-radius: 4px;
+  transition: opacity 0.15s ease, background 0.15s ease, transform 0.15s;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+.profile-info-row:hover .profile-copy-btn {
+  opacity: 1;
+}
+.profile-copy-btn:hover {
+  background: #ecfdf5;
+  transform: scale(1.1);
 }
 .profile-card-body {
   padding: 24px 28px 28px;
@@ -4243,7 +4292,8 @@ body:not(.sidebar-autohide) .btn-drawer-pin {
             </div>
             <h2 class="profile-header-name"><?= htmlspecialchars($firstName.' '.$lastName) ?></h2>
             <div class="profile-header-role">
-              Registered Farmer
+              <span>Registered Farmer</span>
+              <span class="profile-verified-chip"><i class="bi bi-patch-check-fill"></i> Verified</span>
             </div>
           </div>
 
@@ -4256,11 +4306,21 @@ body:not(.sidebar-autohide) .btn-drawer-pin {
             </div>
             <div class="profile-info-row">
               <span class="profile-info-label">Email</span>
-              <span class="profile-info-value"><?= !empty($profileData['email']) ? htmlspecialchars($profileData['email']) : '—' ?></span>
+              <span class="profile-info-value">
+                <?= !empty($profileData['email']) ? htmlspecialchars($profileData['email']) : '—' ?>
+                <?php if(!empty($profileData['email'])): ?>
+                  <button type="button" class="profile-copy-btn" onclick="copyTagId('<?= htmlspecialchars(addslashes($profileData['email'])) ?>', this)" title="Copy Email"><i class="bi bi-copy"></i></button>
+                <?php endif; ?>
+              </span>
             </div>
             <div class="profile-info-row">
               <span class="profile-info-label">Mobile</span>
-              <span class="profile-info-value"><?= !empty($profileData['mobile']) ? htmlspecialchars($profileData['mobile']) : '—' ?></span>
+              <span class="profile-info-value">
+                <?= !empty($profileData['mobile']) ? htmlspecialchars($profileData['mobile']) : '—' ?>
+                <?php if(!empty($profileData['mobile'])): ?>
+                  <button type="button" class="profile-copy-btn" onclick="copyTagId('<?= htmlspecialchars(addslashes($profileData['mobile'])) ?>', this)" title="Copy Mobile"><i class="bi bi-copy"></i></button>
+                <?php endif; ?>
+              </span>
             </div>
             <div class="profile-info-row">
               <span class="profile-info-label">Gender</span>
@@ -4277,7 +4337,12 @@ body:not(.sidebar-autohide) .btn-drawer-pin {
             </div>
             <div class="profile-info-row">
               <span class="profile-info-label">RSBSA / Farmer ID</span>
-              <span class="profile-info-value"><?= !empty($profileData['gov_id']) ? htmlspecialchars($profileData['gov_id']) : '—' ?></span>
+              <span class="profile-info-value">
+                <?= !empty($profileData['gov_id']) ? htmlspecialchars($profileData['gov_id']) : '—' ?>
+                <?php if(!empty($profileData['gov_id'])): ?>
+                  <button type="button" class="profile-copy-btn" onclick="copyTagId('<?= htmlspecialchars(addslashes($profileData['gov_id'])) ?>', this)" title="Copy RSBSA ID"><i class="bi bi-copy"></i></button>
+                <?php endif; ?>
+              </span>
             </div>
             <div class="profile-info-row">
               <span class="profile-info-label">Account Status</span>
