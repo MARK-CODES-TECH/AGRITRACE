@@ -15,6 +15,7 @@
 
 # ── Scratch & Temporary Files ───────────────────────────
 /scratch/
+*.zip
 *.bak
 *.log
 *.tmp
