@@ -1,6 +1,6 @@
 # Enable Rewrite Engine
 RewriteEngine On
-RewriteBase /AG/
+RewriteBase /
 
 # Default DirectoryIndex
 DirectoryIndex pages/index.php index.php
@@ -15,12 +15,11 @@ RewriteRule ^pages/uploads/(.*)$ uploads/$1 [L]
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.+)/$ $1 [L,R=301]
 
-# Route root-level page requests (e.g. /AG/login.php) to pages/ if they exist there
+# Route root-level page requests to pages/ if the file exists
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteCond %{DOCUMENT_ROOT}/AG/pages/$1.php -f [OR]
 RewriteCond %{DOCUMENT_ROOT}/pages/$1.php -f
-RewriteRule ^([a-zA-Z0-9_\-]+)\.php$ pages/$1.php [L,QSA]
+RewriteRule ^([a-zA-Z0-9_-]+)\.php$ pages/$1.php [L,QSA]
 
 # Allow direct access to existing files and directories
 RewriteCond %{REQUEST_FILENAME} -f [OR]
@@ -35,3 +34,21 @@ RewriteRule ^ - [L]
 <FilesMatch "\.css$">
     AddType text/css .css
 </FilesMatch>
+
+
+# ADD to your existing .htaccess (do not replace it)
+RewriteEngine On
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+
+AddType application/manifest+json .webmanifest
+<Files "manifest.json">
+  Header set Content-Type "application/manifest+json"
+</Files>
+<Files "service-worker.js">
+  Header set Cache-Control "no-cache, no-store, must-revalidate"
+  Header set Service-Worker-Allowed "/"
+</Files>
+<Files "offline.html">
+  Header set Cache-Control "no-cache"
+</Files>

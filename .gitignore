@@ -2,16 +2,9 @@
 /vendor/
 
 # ── User Uploads & Media (Preserve folders, ignore files) ─
-/uploads/chat/*
-!/uploads/chat/.gitkeep
-/uploads/farms/*
-!/uploads/farms/.gitkeep
-/uploads/incidents/*
-!/uploads/incidents/.gitkeep
-/uploads/profiles/*
-!/uploads/profiles/.gitkeep
-/uploads/public_reports/*
-!/uploads/public_reports/.gitkeep
+/uploads/*/*
+!/uploads/*/.gitkeep
+*.zip
 
 # ── Scratch & Temporary Files ───────────────────────────
 /scratch/

@@ -489,14 +489,38 @@ try {
         // ... [REST OF YOUR CASES REMAIN THE SAME - getFirstDistrictMapData, getFirstDistrictIncidents, etc.]
 
         case 'getFirstDistrictMapData': {
-            $addressCondition = firstDistrictAddressCondition('f');
-            $coordinateCondition = firstDistrictCoordinateCondition('f');
             $municipalitySql = firstDistrictMunicipalitySql('f');
+            $muniCenters = [
+                'Cabusao'     => [13.7167, 123.1167],
+                'Del Gallego' => [13.9111, 122.5858],
+                'Lupi'        => [13.7844, 122.8686],
+                'Ragay'       => [13.8189, 122.7911],
+                'Sipocot'     => [13.7636, 122.9733],
+            ];
+            $resolveMuniFromText = static function (?string $muni, ?string $addr) use ($muniCenters): string {
+                $haystack = strtolower(trim(($muni ?? '') . ' ' . ($addr ?? '')));
+                foreach (array_keys($muniCenters) as $m) {
+                    if (strpos($haystack, strtolower($m)) !== false) {
+                        return $m;
+                    }
+                }
+                return '1st District';
+            };
+
+            // Safely check if gps_accuracy / gps_source columns exist on farms
+            $hasGpsMeta = false;
+            try {
+                $colCheck = $pdo->query("SHOW COLUMNS FROM `farms` LIKE 'gps_accuracy'")->fetchAll();
+                $hasGpsMeta = !empty($colCheck);
+            } catch (Throwable $e) {}
+            $gpsSelectCols = $hasGpsMeta ? "f.gps_accuracy, f.gps_source," : "NULL AS gps_accuracy, NULL AS gps_source,";
+            $gpsGroupCols  = $hasGpsMeta ? ", f.gps_accuracy, f.gps_source" : "";
 
             $stmt = $pdo->query("
                 SELECT
                     f.id, f.name, f.ownerId, f.ownerName, f.type, f.address,
-                    f.latitude, f.longitude, f.area, f.status, f.createdAt, f.updatedAt,
+                    f.pet_municipality,
+                    f.latitude, f.longitude, {$gpsSelectCols} f.area, f.status, f.createdAt, f.updatedAt,
                     u.firstName, u.lastName, u.email, u.mobile,
                     {$municipalitySql} AS municipality,
                     COUNT(l.id) AS livestock_records,
@@ -505,14 +529,135 @@ try {
                 FROM farms f
                 LEFT JOIN users u ON f.ownerId = u.id
                 LEFT JOIN livestock l ON l.farmId = f.id
-                WHERE {$addressCondition} OR {$coordinateCondition}
-                GROUP BY f.id, f.name, f.ownerId, f.ownerName, f.type, f.address, 
-                         f.latitude, f.longitude, f.area, f.status, f.createdAt, f.updatedAt,
-                         u.firstName, u.lastName, u.email, u.mobile
+                GROUP BY f.id, f.name, f.ownerId, f.ownerName, f.type, f.address,
+                         f.pet_municipality, f.latitude, f.longitude{$gpsGroupCols}, f.area, f.status,
+                         f.createdAt, f.updatedAt, u.firstName, u.lastName, u.email, u.mobile
                 ORDER BY FIELD(f.status, 'Approved', 'Pending', 'Rejected'), municipality, f.name
             ");
 
-            sendResponse(['success' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $combined = [];
+            $farmIdToIndex = [];
+            $farmsWithRealCoords = [];
+
+            foreach ($rows as $row) {
+                $fid = (int)$row['id'];
+                $muni = $resolveMuniFromText($row['pet_municipality'] ?? $row['municipality'] ?? '', $row['address'] ?? '');
+                $row['municipality'] = $muni;
+                $lat = is_numeric($row['latitude']) ? (float)$row['latitude'] : 0.0;
+                $lng = is_numeric($row['longitude']) ? (float)$row['longitude'] : 0.0;
+                if ($lat != 0.0 && $lng != 0.0) {
+                    $farmsWithRealCoords[$fid] = true;
+                } else {
+                    $base = $muniCenters[$muni] ?? [13.8189, 122.7911];
+                    $angle = ($fid * 137.5) * M_PI / 180;
+                    $radius = 0.002 + (($fid % 7) * 0.0006);
+                    $row['latitude'] = round($base[0] + cos($angle) * $radius, 6);
+                    $row['longitude'] = round($base[1] + sin($angle) * $radius, 6);
+                }
+                $row['source'] = 'farm';
+                $farmIdToIndex[$fid] = count($combined);
+                $combined[] = $row;
+            }
+
+            // Also include ALL farm_registrations so every registration is pinned on the map
+            try {
+                $frStmt = $pdo->query("
+                    SELECT fr.id, fr.farmer_id, fr.farm_id, fr.farm_name, fr.farm_address,
+                           fr.form_data, fr.status, fr.created_at,
+                           u.firstName, u.lastName, u.email, u.mobile
+                    FROM farm_registrations fr
+                    LEFT JOIN users u ON fr.farmer_id = u.id
+                    ORDER BY fr.created_at DESC
+                ");
+                $frRows = $frStmt->fetchAll(PDO::FETCH_ASSOC);
+                $animalKeys = [
+                    'cattle' => 'Cattle', 'swine' => 'Swine', 'poultry' => 'Poultry',
+                    'goat' => 'Goat', 'carabao' => 'Carabao', 'horse' => 'Horse',
+                    'sheep' => 'Sheep', 'rabbit' => 'Rabbit'
+                ];
+
+                foreach ($frRows as $fr) {
+                    $fd = json_decode($fr['form_data'] ?? '{}', true);
+                    if (!is_array($fd)) {
+                        $fd = [];
+                    }
+                    $linkedFarmId = !empty($fr['farm_id']) ? (int)$fr['farm_id'] : 0;
+                    $frLat = is_numeric($fd['farm_lat'] ?? ($fd['latitude'] ?? null))
+                        ? (float)($fd['farm_lat'] ?? $fd['latitude']) : 0.0;
+                    $frLng = is_numeric($fd['farm_lng'] ?? ($fd['longitude'] ?? null))
+                        ? (float)($fd['farm_lng'] ?? $fd['longitude']) : 0.0;
+
+                    if ($linkedFarmId > 0 && isset($farmIdToIndex[$linkedFarmId])) {
+                        if (empty($farmsWithRealCoords[$linkedFarmId]) && $frLat != 0.0 && $frLng != 0.0) {
+                            $idx = $farmIdToIndex[$linkedFarmId];
+                            $combined[$idx]['latitude'] = $frLat;
+                            $combined[$idx]['longitude'] = $frLng;
+                            $farmsWithRealCoords[$linkedFarmId] = true;
+                        }
+                        continue;
+                    }
+
+                    $frId = (int)$fr['id'];
+                    $frAddr = trim((string)($fr['farm_address'] ?? ($fd['farm_address'] ?? '')));
+                    $frMuni = $resolveMuniFromText($fd['pet_municipality'] ?? ($fd['municipality'] ?? ''), $frAddr);
+                    if ($frLat == 0.0 || $frLng == 0.0) {
+                        $base = $muniCenters[$frMuni] ?? [13.8189, 122.7911];
+                        $angle = (($frId + 50) * 137.5) * M_PI / 180;
+                        $radius = 0.0025 + (($frId % 7) * 0.0006);
+                        $frLat = round($base[0] + cos($angle) * $radius, 6);
+                        $frLng = round($base[1] + sin($angle) * $radius, 6);
+                    }
+
+                    $totalLv = 0;
+                    $lvTypes = [];
+                    foreach ($animalKeys as $k => $label) {
+                        $q = (int)($fd['lv_qty_' . $k] ?? 0);
+                        if ($q > 0) {
+                            $totalLv += $q;
+                            $lvTypes[] = $label;
+                        }
+                    }
+
+                    $rawSt = strtolower((string)($fr['status'] ?? 'pending'));
+                    $mappedStatus = $rawSt === 'accepted' ? 'Approved' : ($rawSt === 'declined' ? 'Rejected' : 'Pending');
+                    $ownerName = trim(($fr['firstName'] ?? '') . ' ' . ($fr['lastName'] ?? ''));
+                    if ($ownerName === '') {
+                        $ownerName = trim(($fd['pet_firstname'] ?? '') . ' ' . ($fd['pet_surname'] ?? ''));
+                    }
+
+                    $combined[] = [
+                        'id'                => 'reg_' . $frId,
+                        'registration_id'   => $frId,
+                        'name'              => trim((string)($fr['farm_name'] ?? ($fd['farm_name'] ?? 'Farm Registration #' . $frId))),
+                        'ownerId'           => (int)$fr['farmer_id'],
+                        'ownerName'         => $ownerName ?: 'Registered Farmer',
+                        'type'              => $fd['farm_type'] ?? ($fd['type'] ?? 'Mixed'),
+                        'address'           => $frAddr ?: ($frMuni . ', Camarines Sur'),
+                        'latitude'          => $frLat,
+                        'longitude'         => $frLng,
+                        'gps_accuracy'      => isset($fd['gps_accuracy']) && is_numeric($fd['gps_accuracy']) ? (float)$fd['gps_accuracy'] : null,
+                        'gps_source'        => $fd['gps_source'] ?? null,
+                        'area'              => (float)($fd['farm_area'] ?? ($fd['area'] ?? 0)),
+                        'status'            => $mappedStatus,
+                        'createdAt'         => $fr['created_at'],
+                        'updatedAt'         => $fr['created_at'],
+                        'firstName'         => $fr['firstName'] ?? '',
+                        'lastName'          => $fr['lastName'] ?? '',
+                        'email'             => $fr['email'] ?? '',
+                        'mobile'            => $fr['mobile'] ?? '',
+                        'municipality'      => $frMuni,
+                        'livestock_records' => count($lvTypes),
+                        'total_livestock'   => $totalLv,
+                        'livestock_types'   => implode(', ', $lvTypes),
+                        'source'            => 'farm_registration',
+                    ];
+                }
+            } catch (Throwable $e) {
+                error_log('farm_registrations map merge error: ' . $e->getMessage());
+            }
+
+            sendResponse(['success' => true, 'data' => $combined]);
         }
 
         case 'getFirstDistrictIncidents': {

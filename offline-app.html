@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#2e7d32">
+<title>AgriTrace+ | Offline</title>
+<style>
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f1f8e9;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1b3a1d;padding:20px}
+.card{max-width:440px;width:100%;background:#fff;border-radius:16px;padding:28px 22px;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,.08)}
+img{width:84px;height:84px;border-radius:18px}h1{font-size:1.3rem;margin:14px 0 8px}p{line-height:1.5;color:#445;margin:6px 0}
+input{width:100%;padding:14px;border:1px solid #bbb;border-radius:10px;font-size:1rem;margin-top:12px;min-height:48px}
+button,a.btn{display:block;width:100%;margin-top:12px;background:#2e7d32;color:#fff;border:0;border-radius:10px;padding:14px;font-size:1rem;min-height:48px;text-decoration:none}
+button.sec{background:#eee;color:#333}button.danger{background:#fff;color:#c62828;border:1px solid #c62828}
+.err{color:#c62828;font-size:.9rem;min-height:20px}.list{text-align:left;margin-top:10px}
+.list a{display:block;padding:12px;border:1px solid #dcedc8;border-radius:10px;margin-top:8px;color:#1b5e20;text-decoration:none;word-break:break-all;font-size:.9rem}
+.small{font-size:.8rem;color:#667}
+</style></head><body>
+<div class="card">
+  <img src="/icons/icon-192.png" alt="AgriTrace+">
+
+  <div id="s-none" hidden>
+    <h1>You're offline</h1>
+    <p>AgriTrace+ needs an internet connection. To use the app offline, log in once while online and choose <b>Enable offline access</b>.</p>
+    <button onclick="location.reload()">Try Again</button>
+  </div>
+
+  <form id="s-lock" hidden>
+    <h1>Offline login</h1>
+    <p>Enter your offline PIN / passphrase to open your saved farm data.</p>
+    <input id="pin" type="password" autocomplete="off" placeholder="Offline PIN / passphrase" required>
+    <div class="err" id="err"></div>
+    <button type="submit" id="unlockBtn">Unlock</button>
+    <button type="button" class="sec" onclick="location.reload()">Try Again (online)</button>
+  </form>
+
+  <div id="s-menu" hidden>
+    <h1>Offline workspace</h1>
+    <p id="pend" class="small"></p>
+    <div class="list" id="pages"></div>
+    <p id="nopages" class="small" hidden>This page isn't saved for offline use. Open pages once while online to save them.</p>
+    <button class="sec" onclick="location.reload()">Try Again (online)</button>
+    <button class="danger" id="wipe">Remove offline data from this device</button>
+  </div>
+</div>
+<script>window.AGRI_SHELL = true;</script>
+<script src="/assets/js/pwa.js"></script>
+<script>
+(async function () {
+  var A = window.AgriPWA, $ = function (i) { return document.getElementById(i); };
+  var path = location.pathname + location.search;
+  function show(id) { ['s-none', 's-lock', 's-menu'].forEach(function (x) { $(x).hidden = (x !== id); }); }
+
+  async function menu() {
+    var pages = await A.listPages();
+    $('pend').textContent = (await A.pending()) + ' item(s) waiting to sync';
+    $('pages').innerHTML = '';
+    pages.sort(function (a, b) { return a.url.localeCompare(b.url); }).forEach(function (p) {
+      var a = document.createElement('a'); a.href = p.url; a.textContent = p.url + '  (saved ' + new Date(p.ts).toLocaleString() + ')';
+      $('pages').appendChild(a);
+    });
+    $('nopages').hidden = pages.length > 0 && path === '/offline-app.html';
+    show('s-menu');
+  }
+  async function render() {
+    var html = null;
+    try { html = await A.getPage(path); } catch (e) {}
+    if (html !== null && path !== '/offline-app.html') { document.open(); document.write(html); document.close(); return; }
+    await menu();
+  }
+
+  $('wipe').onclick = async function () {
+    if (confirm('Remove all offline data, including items not yet synced?')) { await A.wipe(); location.reload(); }
+  };
+  $('s-lock').onsubmit = async function (e) {
+    e.preventDefault();
+    $('unlockBtn').disabled = true; $('err').textContent = 'Checking…';
+    var ok = await A.unlock($('pin').value);
+    $('unlockBtn').disabled = false;
+    if (ok) { $('err').textContent = ''; render(); } else { $('err').textContent = 'Wrong PIN / passphrase.'; }
+  };
+
+  if (!(await A.hasProfile())) return show('s-none');
+  if (await A.tryUnlock()) return render();
+  show('s-lock');
+})();
+</script>
+</body></html>

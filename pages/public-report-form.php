@@ -2,26 +2,56 @@
 /**
  * AgriTrace+ | Public Report Form
  */
+require_once __DIR__ . '/init.php';
+require_once dirname(__DIR__) . '/helpers.php';
 require_once __DIR__ . '/db_connect.php';
 
-function handleUpload(string $fieldName, string $subDir = 'public_reports'): ?string {
-    if (!isset($_FILES[$fieldName]) || $_FILES[$fieldName]['error'] !== UPLOAD_ERR_OK) return null;
-    $uploadDir = dirname(__DIR__) . "/uploads/{$subDir}/";
-    if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
-    $file = $_FILES[$fieldName];
-    $ext  = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-    if (!in_array($ext, ['jpg','jpeg','png','gif','webp','mp4','mov','avi','pdf'], true)) return null;
-    if ($file['size'] > 10 * 1024 * 1024) return null;
-    $filename = uniqid('rpt_', true) . '.' . $ext;
-    if (!move_uploaded_file($file['tmp_name'], $uploadDir . $filename)) return null;
-    return "uploads/{$subDir}/{$filename}";
+$isTagalog = (current_lang() === 'tl');
+
+if (!function_exists('handleUpload')) {
+    function handleUpload(string $fieldName, string $subDir = 'public_reports'): ?string {
+        if (!isset($_FILES[$fieldName]) || $_FILES[$fieldName]['error'] !== UPLOAD_ERR_OK) return null;
+        $uploadDir = dirname(__DIR__) . "/uploads/{$subDir}/";
+        if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+        $file = $_FILES[$fieldName];
+        $ext  = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext, ['jpg','jpeg','png','gif','webp','mp4','mov','avi','pdf'], true)) return null;
+        if ($file['size'] > 10 * 1024 * 1024) return null;
+        $filename = uniqid('rpt_', true) . '.' . $ext;
+        if (!move_uploaded_file($file['tmp_name'], $uploadDir . $filename)) return null;
+        return "uploads/{$subDir}/{$filename}";
+    }
 }
 
 $success = false;
 $errors  = [];
 $newId   = null;
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+// Report tracking lookup
+$trackResult = null;
+$trackError = '';
+$trackQuery = trim($_GET['track'] ?? $_POST['track_query'] ?? '');
+if ($trackQuery !== '') {
+    $cleanId = preg_replace('/[^0-9]/', '', $trackQuery);
+    try {
+        $stmt = $pdo->prepare("
+            SELECT id, reportType, description, status, createdAt,
+                   COALESCE(updatedAt, createdAt) as last_update
+            FROM public_reports
+            WHERE id = ? OR contactPhone = ?
+            ORDER BY createdAt DESC LIMIT 10
+        ");
+        $stmt->execute([$cleanId ?: -1, $trackQuery]);
+        $trackResult = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if (empty($trackResult)) {
+            $trackError = $isTagalog ? 'Walang nahanap na ulat para sa binigay na ID o numero.' : 'No reports found for that Reference ID or phone number.';
+        }
+    } catch (PDOException $e) {
+        $trackError = 'Query error: ' . $e->getMessage();
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') !== 'track_report') {
     $reportType  = trim($_POST['report_type']   ?? '');
     $otherType   = trim($_POST['other_type']    ?? '');
     $description = trim($_POST['description']   ?? '');
@@ -32,13 +62,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $terms       = isset($_POST['terms']);
 
     $validTypes = ['Sick','Dead','Stray','Disease','Others'];
-    if (!in_array($reportType, $validTypes, true))           $errors[] = 'Please select a report type.';
-    if ($reportType === 'Others' && $otherType === '')        $errors[] = 'Please specify the report type.';
-    if ($description === '')                                  $errors[] = 'Description is required.';
-    if ($phone === '')                                        $errors[] = 'Contact phone is required.';
-    elseif (!preg_match('/^[\d\s\+\-\(\)]{7,20}$/', $phone)) $errors[] = 'Invalid phone number.';
-    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Invalid email address.';
-    if (!$terms)                                              $errors[] = 'You must accept the terms and conditions.';
+    if (!in_array($reportType, $validTypes, true))           $errors[] = t('Please select a report type.');
+    if ($reportType === 'Others' && $otherType === '')        $errors[] = t('Please specify the report type.');
+    if ($description === '')                                  $errors[] = t('Description is required.');
+    if ($phone === '')                                        $errors[] = t('Contact phone is required.');
+    elseif (!preg_match('/^[\d\s\+\-\(\)]{7,20}$/', $phone)) $errors[] = t('Invalid phone number.');
+    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = t('Invalid email address.');
+    if (!$terms)                                              $errors[] = t('You must accept the terms and conditions.');
 
     $latitude  = ($latRaw  !== '' && is_numeric($latRaw))  ? (float)$latRaw  : null;
     $longitude = ($lngRaw  !== '' && is_numeric($lngRaw))  ? (float)$lngRaw  : null;
@@ -47,32 +77,76 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $faceUrl    = handleUpload('face_photo') ?? handleUpload('face_cam');
     $mediaUrl   = handleUpload('media_file') ?? handleUpload('media_cam');
 
-    // Strict validation: Citizen must upload an ID photo or supporting file/photo
-    if (!$idPhotoUrl && !$mediaUrl && !$faceUrl) {
-        $errors[] = 'Upload required: You must upload an ID photo or supporting incident file/photo before submitting.';
+    // Strict validation: Citizen must upload both an ID photo and a Face photo before submitting
+    if (!$idPhotoUrl) {
+        $errors[] = t('Valid ID Photo is required before submitting the report.');
+    }
+    if (!$faceUrl) {
+        $errors[] = t('Face Photo is required before submitting the report.');
     }
 
     if (empty($errors)) {
         try {
-            $stmt = $pdo->prepare("
-                INSERT INTO public_reports
-                    (reportType, otherType, description, contactPhone, contactEmail,
-                     idPhotoUrl, facePhotoUrl, mediaUrl, latitude, longitude, status, createdAt)
-                VALUES
-                    (:rt, :ot, :desc, :phone, :email, :id, :face, :media, :lat, :lng, 'Pending', NOW())
-            ");
-            $stmt->execute([
-                ':rt'    => $reportType,
-                ':ot'    => $reportType === 'Others' ? $otherType : null,
-                ':desc'  => $description,
-                ':phone' => $phone,
-                ':email' => $email !== '' ? $email : null,
-                ':id'    => $idPhotoUrl,
-                ':face'  => $faceUrl,
-                ':media' => $mediaUrl,
-                ':lat'   => $latitude,
-                ':lng'   => $longitude,
-            ]);
+            // Ensure media/photo columns exist in public_reports table
+            $hasMediaCol = false;
+            try {
+                $cols = $pdo->query("SHOW COLUMNS FROM public_reports")->fetchAll(PDO::FETCH_COLUMN);
+                if (!in_array('idPhotoUrl', $cols, true)) {
+                    @$pdo->exec("ALTER TABLE public_reports ADD COLUMN idPhotoUrl VARCHAR(500) NULL AFTER contactEmail");
+                }
+                if (!in_array('facePhotoUrl', $cols, true)) {
+                    @$pdo->exec("ALTER TABLE public_reports ADD COLUMN facePhotoUrl VARCHAR(500) NULL AFTER idPhotoUrl");
+                }
+                if (!in_array('mediaUrl', $cols, true)) {
+                    @$pdo->exec("ALTER TABLE public_reports ADD COLUMN mediaUrl VARCHAR(500) NULL AFTER facePhotoUrl");
+                }
+                $refreshed = $pdo->query("SHOW COLUMNS FROM public_reports")->fetchAll(PDO::FETCH_COLUMN);
+                $hasMediaCol = in_array('mediaUrl', $refreshed, true);
+            } catch (Exception $eCol) {
+                $hasMediaCol = false;
+            }
+
+            if ($hasMediaCol) {
+                $stmt = $pdo->prepare("
+                    INSERT INTO public_reports
+                        (reportType, otherType, description, contactPhone, contactEmail,
+                         idPhotoUrl, facePhotoUrl, mediaUrl, latitude, longitude, status, createdAt)
+                    VALUES
+                        (:rt, :ot, :desc, :phone, :email, :id, :face, :media, :lat, :lng, 'Pending', NOW())
+                ");
+                $stmt->execute([
+                    ':rt'    => $reportType,
+                    ':ot'    => $reportType === 'Others' ? $otherType : null,
+                    ':desc'  => $description,
+                    ':phone' => $phone,
+                    ':email' => $email !== '' ? $email : null,
+                    ':id'    => $idPhotoUrl,
+                    ':face'  => $faceUrl,
+                    ':media' => $mediaUrl,
+                    ':lat'   => $latitude,
+                    ':lng'   => $longitude,
+                ]);
+            } else {
+                $descToSave = $mediaUrl ? ($description . "\n[Attachment: " . $mediaUrl . "]") : $description;
+                $stmt = $pdo->prepare("
+                    INSERT INTO public_reports
+                        (reportType, otherType, description, contactPhone, contactEmail,
+                         idPhotoUrl, facePhotoUrl, latitude, longitude, status, createdAt)
+                    VALUES
+                        (:rt, :ot, :desc, :phone, :email, :id, :face, :lat, :lng, 'Pending', NOW())
+                ");
+                $stmt->execute([
+                    ':rt'    => $reportType,
+                    ':ot'    => $reportType === 'Others' ? $otherType : null,
+                    ':desc'  => $descToSave,
+                    ':phone' => $phone,
+                    ':email' => $email !== '' ? $email : null,
+                    ':id'    => $idPhotoUrl,
+                    ':face'  => $faceUrl,
+                    ':lat'   => $latitude,
+                    ':lng'   => $longitude,
+                ]);
+            }
             $newId   = $pdo->lastInsertId();
             $success = true;
 
@@ -100,11 +174,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<?= $isTagalog ? 'tl' : 'en' ?>">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AgriTrace+ | Public Report</title>
+<title>AgriTrace+ | <?= $isTagalog ? 'Pampublikong Ulat ng Insidente' : 'Public Incident Report' ?></title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
@@ -324,36 +398,111 @@ hr.div{border:none;border-top:1px solid var(--gb);margin:20px 0}
 <nav class="nav">
     <div class="logo">Agri<span>Trace+</span></div>
     <div class="nav-links" style="display:flex;align-items:center;gap:12px;">
-        <button type="button" class="lang-switch-btn" onclick="toggleLanguage()" title="Palitan ang Wika / Switch Language" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#fff;cursor:pointer;font-size:0.8rem;font-weight:700;"><span class="lang-flag">🇵🇭</span> <span class="lang-label">Tagalog</span></button>
-        <a href="index.php">Home</a>
-        <a href="login.php" class="lbtn">Log In</a>
+        <button type="button" class="lang-switch-btn <?= $isTagalog ? 'active-tl' : '' ?>" onclick="toggleLanguage()" title="<?= $isTagalog ? 'Kasalukuyan: Tagalog • I-click para bumalik sa English' : 'Current: English • Click to switch to Tagalog' ?>" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#fff;cursor:pointer;font-size:0.8rem;font-weight:700;"><span class="lang-flag"><?= $isTagalog ? '🇺🇸' : '🇵🇭' ?></span> <span class="lang-label"><?= $isTagalog ? 'English' : 'Tagalog' ?></span></button>
+        <a href="index.php"><?= t('Home') ?></a>
+        <a href="login.php" class="lbtn"><?= t('Log In') ?></a>
     </div>
 </nav>
 
 <div class="page">
 <div class="card">
-    <a href="index.php" class="close-btn" title="Back"><i class="bi bi-x-lg"></i></a>
+    <a href="index.php" class="close-btn" title="<?= t('Back') ?>"><i class="bi bi-x-lg"></i></a>
 
     <div class="header">
         <h1>Agri<span>Trace+</span></h1>
-        <div class="badge"><i class="bi bi-globe"></i> Public Access</div>
-        <p>Submit anonymous reports for livestock health and safety</p>
+        <div class="badge"><i class="bi bi-globe"></i> <?= t('Public Access') ?></div>
+        <p><?= t('Submit anonymous reports for livestock health and safety') ?></p>
     </div>
+
+    <!-- REPORT & TRACK SWITCHER -->
+    <?php $isTrackingView = (!empty($trackQuery) || ($_GET['view'] ?? '') === 'track'); ?>
+    <div style="display:flex;gap:8px;background:rgba(255,255,255,.06);padding:5px;border-radius:12px;margin:16px 0 22px;border:1px solid var(--gb);">
+        <a href="public-report-form.php" style="flex:1;text-align:center;padding:10px 14px;border-radius:8px;font-size:0.83rem;font-weight:700;text-decoration:none;transition:all .2s;<?= !$isTrackingView ? 'background:var(--green);color:#fff;box-shadow:0 2px 8px rgba(0,168,107,.4);' : 'color:var(--muted);' ?>">
+            <i class="bi bi-file-earmark-plus"></i> <?= $isTagalog ? 'Magsumite ng Ulat' : 'Submit Report' ?>
+        </a>
+        <a href="public-report-form.php?view=track" style="flex:1;text-align:center;padding:10px 14px;border-radius:8px;font-size:0.83rem;font-weight:700;text-decoration:none;transition:all .2s;<?= $isTrackingView ? 'background:var(--green);color:#fff;box-shadow:0 2px 8px rgba(0,168,107,.4);' : 'color:var(--muted);' ?>">
+            <i class="bi bi-search"></i> <?= $isTagalog ? 'Subaybayan ang Ulat' : 'Track Your Report' ?>
+        </a>
+    </div>
+
+    <?php if ($isTrackingView): ?>
+    <!-- TRACKING SECTION -->
+    <div style="background:rgba(255,255,255,.05);border:1px solid var(--gb);border-radius:14px;padding:22px;margin-bottom:20px;">
+        <h3 style="font-family:'Syne',sans-serif;font-size:1.1rem;margin-bottom:6px;display:flex;align-items:center;gap:8px;color:#fff;">
+            <i class="bi bi-shield-check" style="color:var(--green);"></i> <?= $isTagalog ? 'Subaybayan ang Katayuan ng Ulat' : 'Citizen Report Tracker' ?>
+        </h3>
+        <p style="font-size:0.82rem;color:var(--muted);margin-bottom:16px;">
+            <?= $isTagalog ? 'Ipasok ang inyong Report Reference ID (hal. #12) o Contact Phone Number upang makita ang pinakabagong katayuan ng inyong ulat.' : 'Enter your Report Reference ID (e.g. #12) or Contact Phone Number to view real-time investigation status.' ?>
+        </p>
+
+        <form method="GET" action="public-report-form.php" style="display:flex;gap:8px;margin-bottom:18px;">
+            <input type="hidden" name="view" value="track">
+            <input type="text" name="track" value="<?= htmlspecialchars($trackQuery) ?>" placeholder="<?= $isTagalog ? 'Reference ID o Telepono...' : 'Reference ID or Phone (e.g. 15 or 09...)' ?>" class="txt" style="flex:1;background:rgba(255,255,255,.08);border:1px solid var(--gb);border-radius:9px;padding:12px 14px;color:#fff;font-size:.9rem;" required>
+            <button type="submit" class="submit-btn" style="width:auto;padding:12px 20px;white-space:nowrap;">
+                <i class="bi bi-search"></i> <?= $isTagalog ? 'Hanapin' : 'Track' ?>
+            </button>
+        </form>
+
+        <?php if ($trackError): ?>
+        <div class="alert alert-e" style="margin-bottom:0;">
+            <i class="bi bi-exclamation-circle-fill"></i>
+            <div><?= htmlspecialchars($trackError) ?></div>
+        </div>
+        <?php endif; ?>
+
+        <?php if (!empty($trackResult)): ?>
+        <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px;">
+            <?php foreach($trackResult as $tr): 
+                $st = $tr['status'] ?? 'Pending';
+                $stColor = match($st) {
+                    'Resolved', 'Closed' => '#10b981',
+                    'Reviewed' => '#3b82f6',
+                    'In Progress' => '#f59e0b',
+                    default => '#94a3b8'
+                };
+            ?>
+            <div style="background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:14px;position:relative;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <span style="font-weight:700;color:var(--green);font-size:0.9rem;">
+                        <i class="bi bi-hash"></i> Report #<?= $tr['id'] ?> &bull; <?= htmlspecialchars($tr['reportType'] ?? 'General') ?>
+                    </span>
+                    <span style="background:<?= $stColor ?>22;color:<?= $stColor ?>;border:1px solid <?= $stColor ?>55;padding:3px 9px;border-radius:6px;font-size:0.75rem;font-weight:700;">
+                        <?= htmlspecialchars($st) ?>
+                    </span>
+                </div>
+                <p style="font-size:0.83rem;color:rgba(255,255,255,.8);margin-bottom:8px;line-height:1.4;">
+                    <?= nl2br(htmlspecialchars($tr['description'] ?? '')) ?>
+                </p>
+                <div style="font-size:0.72rem;color:var(--muted);display:flex;gap:16px;">
+                    <span><i class="bi bi-calendar3"></i> Submitted: <?= date('M d, Y h:i A', strtotime($tr['createdAt'])) ?></span>
+                    <span><i class="bi bi-clock-history"></i> Updated: <?= date('M d, Y h:i A', strtotime($tr['last_update'])) ?></span>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+    </div>
+    <div style="text-align:center;padding-bottom:16px;">
+        <a href="public-report-form.php" style="color:var(--muted);font-size:0.83rem;text-decoration:underline;">
+            <i class="bi bi-arrow-left"></i> <?= $isTagalog ? 'Bumalik sa Pagsumite ng Ulat' : 'Return to Submit New Report' ?>
+        </a>
+    </div>
+    <?php endif; ?>
 
     <?php if ($success): ?>
     <div class="alert alert-s">
         <i class="bi bi-check-circle-fill"></i>
         <div>
-            <strong>Report submitted successfully!</strong><br>
-            Your report has been logged and will be reviewed by an agriculture officer.
-            <?php if ($newId): ?> Reference ID: <strong>#<?= htmlspecialchars((string)$newId) ?></strong><?php endif; ?>
+            <strong><?= t('Report submitted successfully!') ?></strong><br>
+            <?= t('Your report has been logged and will be reviewed by an agriculture officer.') ?>
+            <?php if ($newId): ?> <?= t('Reference ID:') ?> <strong>#<?= htmlspecialchars((string)$newId) ?></strong><?php endif; ?>
         </div>
     </div>
     <div style="text-align:center;padding:8px 0 16px">
         <a href="public-report-form.php" style="display:inline-flex;align-items:center;gap:8px;
             background:rgba(0,168,107,.14);border:1px solid rgba(0,168,107,.38);color:#6ee7b7;
             padding:11px 22px;border-radius:10px;text-decoration:none;font-weight:600;font-size:.88rem">
-            <i class="bi bi-plus-circle"></i> Submit Another Report
+            <i class="bi bi-plus-circle"></i> <?= t('Submit Another Report') ?>
         </a>
     </div>
     <?php else: ?>
@@ -361,15 +510,16 @@ hr.div{border:none;border-top:1px solid var(--gb);margin:20px 0}
     <?php if (!empty($errors)): ?>
     <div class="alert alert-e">
         <i class="bi bi-exclamation-triangle-fill"></i>
-        <div><strong>Please fix:</strong><ul><?php foreach($errors as $e): ?><li><?= htmlspecialchars($e) ?></li><?php endforeach; ?></ul></div>
+        <div><strong><?= t('Please fix:') ?></strong><ul><?php foreach($errors as $e): ?><li><?= htmlspecialchars($e) ?></li><?php endforeach; ?></ul></div>
     </div>
     <?php endif; ?>
 
+    <?php if (!$isTrackingView): ?>
     <form id="pubForm" method="POST" enctype="multipart/form-data" novalidate>
 
         <!-- REPORT TYPE -->
         <div class="fg">
-            <label class="lbl">Report Type <span class="req">*</span></label>
+            <label class="lbl"><?= t('Report Type') ?> <span class="req">*</span></label>
             <div class="rg">
                 <?php $prev = $_POST['report_type'] ?? ''; ?>
                 <?php foreach([
@@ -381,24 +531,24 @@ hr.div{border:none;border-top:1px solid var(--gb);margin:20px 0}
                 ] as [$v,$ic,$lb]): ?>
                 <label class="rc <?= $v==='Disease'?'fw':'' ?>">
                     <input type="radio" name="report_type" value="<?= $v ?>" <?= $prev===$v?'checked':'' ?> required>
-                    <i class="bi <?= $ic ?>"></i> <?= $lb ?>
+                    <i class="bi <?= $ic ?>"></i> <?= t($lb) ?>
                 </label>
                 <?php endforeach; ?>
             </div>
             <div id="other-wrap">
                 <input type="text" name="other_type" id="other_type" class="field"
-                       placeholder="Please specify…"
+                       placeholder="<?= t('Please specify…') ?>"
                        value="<?= htmlspecialchars($_POST['other_type'] ?? '') ?>">
             </div>
         </div>
 
         <!-- PHOTOS/VIDEOS -->
         <div class="fg">
-            <label class="lbl">Photos / Videos <span style="text-transform:none;font-weight:400;color:var(--muted)">(Incident evidence &bull; max 10 MB)</span></label>
+            <label class="lbl"><?= t('Photos / Videos') ?> <span style="text-transform:none;font-weight:400;color:var(--muted)">(<?= t('Incident evidence • max 10 MB') ?>)</span></label>
             <div class="fu-wrap" id="wrap-media" onclick="openSheet('media')" style="cursor:pointer">
                 <div class="fu-row">
                     <i class="bi bi-camera-fill fu-ico"></i>
-                    <span class="fu-name" id="media-name">No file chosen</span>
+                    <span class="fu-name" id="media-name"><?= t('No file chosen') ?></span>
                     <i class="bi bi-chevron-right fu-arr"></i>
                 </div>
             </div>
@@ -408,20 +558,20 @@ hr.div{border:none;border-top:1px solid var(--gb);margin:20px 0}
 
         <!-- DESCRIPTION -->
         <div class="fg">
-            <label class="lbl" for="desc">Description <span class="req">*</span></label>
+            <label class="lbl" for="desc"><?= t('Description') ?> <span class="req">*</span></label>
             <textarea name="description" id="desc" class="field" rows="4"
-                      placeholder="Describe the issue, approximate location, number of animals affected…"
+                      placeholder="<?= t('Describe the issue, approximate location, number of animals affected…') ?>"
                       required><?= htmlspecialchars($_POST['description'] ?? '') ?></textarea>
         </div>
 
         <!-- GPS -->
         <div class="fg">
-            <label class="lbl">Location (GPS)</label>
+            <label class="lbl"><?= t('Location (GPS)') ?></label>
             <div class="gps-row">
                 <i class="bi bi-geo-alt-fill"></i>
-                <span class="gps-status" id="gps-status">Location not captured yet</span>
+                <span class="gps-status" id="gps-status"><?= t('Location not captured yet') ?></span>
                 <button type="button" class="gps-det" id="gps-btn">
-                    <i class="bi bi-crosshair"></i> Detect
+                    <i class="bi bi-crosshair"></i> <?= t('Detect') ?>
                 </button>
             </div>
             <input type="hidden" name="latitude"  id="lat_f" value="<?= htmlspecialchars($_POST['latitude']  ?? '') ?>">
@@ -432,7 +582,7 @@ hr.div{border:none;border-top:1px solid var(--gb);margin:20px 0}
 
         <!-- CONTACT -->
         <div class="fg">
-            <label class="lbl" for="cphone">Contact Phone <span class="req">*</span></label>
+            <label class="lbl" for="cphone"><?= t('Contact Phone') ?> <span class="req">*</span></label>
             <div class="iw">
                 <i class="bi bi-telephone ico"></i>
                 <input type="tel" name="contact_phone" id="cphone" class="field"
@@ -442,7 +592,7 @@ hr.div{border:none;border-top:1px solid var(--gb);margin:20px 0}
         </div>
 
         <div class="fg">
-            <label class="lbl" for="cemail">Contact Email <span style="text-transform:none;font-weight:400;color:var(--muted)">(optional)</span></label>
+            <label class="lbl" for="cemail"><?= t('Contact Email') ?> <span style="text-transform:none;font-weight:400;color:var(--muted)">(<?= t('(optional)') ?>)</span></label>
             <div class="iw">
                 <i class="bi bi-envelope ico"></i>
                 <input type="email" name="contact_email" id="cemail" class="field"
@@ -451,14 +601,14 @@ hr.div{border:none;border-top:1px solid var(--gb);margin:20px 0}
             </div>
         </div>
 
-        <!-- ID + FACE PHOTO -->
+        <!-- ID + FACE PHOTO (BOTH REQUIRED) -->
         <div class="g2">
             <div class="fg">
-                <label class="lbl">ID Photo <span class="req">*</span></label>
+                <label class="lbl"><?= t('ID Photo') ?> <span class="req">*</span></label>
                 <div class="fu-wrap" id="wrap-id" onclick="openSheet('id')" style="cursor:pointer">
                     <div class="fu-row">
-                        <i class="bi bi-person-badge fu-ico"></i>
-                        <span class="fu-name" id="id-name">No file chosen</span>
+                        <i class="bi bi-person-badge fu-ico" id="id-ico"></i>
+                        <span class="fu-name" id="id-name"><?= t('No file chosen') ?></span>
                         <i class="bi bi-chevron-right fu-arr"></i>
                     </div>
                 </div>
@@ -466,11 +616,11 @@ hr.div{border:none;border-top:1px solid var(--gb);margin:20px 0}
                 <input type="file" name="id_cam"   id="id_cam"   class="hf" accept="image/*" capture="environment">
             </div>
             <div class="fg">
-                <label class="lbl">Face Photo <span style="text-transform:none;font-weight:400;color:var(--muted)">(optional)</span></label>
+                <label class="lbl"><?= t('Face Photo') ?> <span class="req">*</span></label>
                 <div class="fu-wrap" id="wrap-face" onclick="openSheet('face')" style="cursor:pointer">
                     <div class="fu-row">
-                        <i class="bi bi-person-circle fu-ico"></i>
-                        <span class="fu-name" id="face-name">No file chosen</span>
+                        <i class="bi bi-person-circle fu-ico" id="face-ico"></i>
+                        <span class="fu-name" id="face-name"><?= t('No file chosen') ?></span>
                         <i class="bi bi-chevron-right fu-arr"></i>
                     </div>
                 </div>
@@ -479,29 +629,52 @@ hr.div{border:none;border-top:1px solid var(--gb);margin:20px 0}
             </div>
         </div>
 
+        <!-- DATA PRIVACY ACT OF 2012 NOTICE -->
+        <div style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.28);border-radius:12px;padding:16px 18px;margin:20px 0 14px;">
+            <div style="display:flex;align-items:flex-start;gap:12px;">
+                <i class="bi bi-shield-lock-fill" style="color:#10b981;font-size:1.4rem;flex-shrink:0;margin-top:2px;"></i>
+                <div>
+                    <h4 style="font-family:'Syne',sans-serif;font-size:0.88rem;color:#6ee7b7;font-weight:700;margin-bottom:4px;">
+                        <?= $isTagalog ? 'Proteksyon sa Privacy ng Impormante (Republic Act No. 10173)' : 'Whistleblower & Citizen Privacy Protection (RA 10173)' ?>
+                    </h4>
+                    <p style="font-size:0.79rem;color:rgba(255,255,255,.76);line-height:1.45;margin-bottom:8px;">
+                        <?= $isTagalog 
+                            ? 'Ang inyong contact details at larawan ng Valid ID at Mukha ay kinokolekta LAMANG para mapatunayan ang katotohanan ng ulat at maiwasan ang panlilinlang. Ito ay ligtas na naka-encrypt at MAA-ACCESS LAMANG ng mga otorisadong opisyal ng Department of Agriculture. HINDI kailanman ilalantad ang inyong mukha o personal na impormasyon sa publiko o sa mapa.' 
+                            : 'Your contact details and uploaded ID / facial photos are required strictly to authenticate incident reports and eliminate malicious hoaxes. They are securely encrypted and accessed EXCLUSIVELY by accredited Department of Agriculture investigators. Personal identifying records are NEVER displayed publicly or visible on open maps.' ?>
+                    </p>
+                    <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:0.73rem;color:#a7f3d0;font-weight:600;">
+                        <span><i class="bi bi-lock-fill"></i> <?= $isTagalog ? 'Naka-encrypt na Datos' : '256-bit Encrypted' ?></span>
+                        <span><i class="bi bi-eye-slash-fill"></i> <?= $isTagalog ? 'Lihim sa Publiko' : 'Redacted from Public' ?></span>
+                        <span><i class="bi bi-shield-shaded"></i> <?= $isTagalog ? 'Proteksyon sa ilalim ng Batas' : 'Protected under RA 10173' ?></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- TERMS CHECKBOX -->
         <label class="terms-row">
             <input type="checkbox" name="terms" id="terms" required <?= isset($_POST['terms'])?'checked':'' ?>>
             <span class="terms-text">
-                I confirm this report is accurate and genuine. I have read and agree to the
+                <?= t('I confirm this report is accurate and genuine. I have read and agree to the') ?>
                 <button type="button" class="terms-link" onclick="event.preventDefault();openTerms()">
-                    Terms &amp; Conditions
+                    <?= t('Terms & Conditions') ?>
                 </button>
-                and understand the applicable laws on filing reports.
+                <?= t('and understand the applicable laws on filing reports.') ?>
             </span>
         </label>
 
         <button type="submit" class="submit-btn" id="submitBtn">
-            <i class="bi bi-send-fill"></i> SUBMIT REPORT
+            <i class="bi bi-send-fill"></i> <?= t('SUBMIT REPORT') ?>
             <span class="spinner"></span>
         </button>
 
         <div class="bot">
-            <a href="login.php"><i class="bi bi-lock"></i> Log in for full access</a>
-            <a href="mailto:support@agritrace.ph">Need help?</a>
+            <a href="login.php"><i class="bi bi-lock"></i> <?= t('Log in for full access') ?></a>
+            <a href="mailto:support@agritrace.ph"><?= t('Need help?') ?></a>
         </div>
     </form>
     <?php endif; ?>
+    <?php endif; // end !isTrackingView ?>
 
     <div class="footer">&copy; 2026 AgriTrace Technologies</div>
 </div>
@@ -639,16 +812,24 @@ gpsBtn.addEventListener('click', () => detectGPS());
 let currentTarget = '';
 const sheet = document.getElementById('srcSheet');
 
-// Map: target → { camId, fileId, labelId, title }
+function getSheetTitle(target) {
+    const isTl = (window.getAgriTraceLanguage && window.getAgriTraceLanguage() === 'tl') || document.documentElement.getAttribute('lang') === 'tl';
+    if (target === 'media') return isTl ? 'Magdagdag ng Larawan / Video' : 'Add Photo / Video';
+    if (target === 'id')    return isTl ? 'Mag-upload ng Larawan ng ID' : 'Upload ID Photo';
+    if (target === 'face')  return isTl ? 'Mag-upload ng Larawan ng Mukha' : 'Upload Face Photo';
+    return isTl ? 'Pumili ng Pagmumulan' : 'Choose Source';
+}
+
+// Map: target → { camId, fileId, labelId }
 const srcMap = {
-    media: { camId:'media_cam', fileId:'media_file', labelId:'media-name', title:'Add Photo / Video' },
-    id:    { camId:'id_cam',    fileId:'id_photo',   labelId:'id-name',    title:'Upload ID Photo' },
-    face:  { camId:'face_cam',  fileId:'face_photo', labelId:'face-name',  title:'Upload Face Photo' },
+    media: { camId:'media_cam', fileId:'media_file', labelId:'media-name' },
+    id:    { camId:'id_cam',    fileId:'id_photo',   labelId:'id-name' },
+    face:  { camId:'face_cam',  fileId:'face_photo', labelId:'face-name' },
 };
 
 function openSheet(target) {
     currentTarget = target;
-    document.getElementById('src-title').textContent = srcMap[target].title;
+    document.getElementById('src-title').textContent = getSheetTitle(target);
     sheet.classList.add('open');
 }
 function openSheetFile(target) {
@@ -680,15 +861,20 @@ function bindLabel(inputId, labelId, wrapId) {
         if (this.files && this.files.length) {
             const f = this.files[0];
             const sz = (f.size / (1024 * 1024)).toFixed(2);
-            document.getElementById(labelId).textContent = `${f.name} (${sz} MB)`;
+            document.getElementById(labelId).textContent = `✓ ${f.name} (${sz} MB)`;
             const wrap = document.getElementById(wrapId);
             if (wrap) {
                 wrap.style.borderColor = '#10b981';
-                wrap.style.background = 'rgba(16, 185, 129, 0.12)';
-                wrap.style.boxShadow = 'none';
+                wrap.style.background = 'rgba(16, 185, 129, 0.14)';
+                wrap.style.boxShadow = '0 0 0 1px rgba(16, 185, 129, 0.3)';
             }
-            const errBox = document.getElementById('client-upload-error');
-            if (errBox) errBox.remove();
+            // If both mandatory ID & Face photos are now provided, clear error box
+            const hasId = (document.getElementById('id_photo')?.files?.length > 0) || (document.getElementById('id_cam')?.files?.length > 0);
+            const hasFace = (document.getElementById('face_photo')?.files?.length > 0) || (document.getElementById('face_cam')?.files?.length > 0);
+            if (hasId && hasFace) {
+                const errBox = document.getElementById('client-upload-error');
+                if (errBox) errBox.remove();
+            }
         }
     });
 }
@@ -723,36 +909,46 @@ function acceptTerms(){ termsChk.checked = true; closeTerms(); }
 modal.addEventListener('click', e => { if (e.target === modal) closeTerms(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeTerms(); closeSheet(); } });
 
-// ── SUBMIT VALIDATION & SPINNER ───────────────────────────────────────────
+// ── SUBMIT VALIDATION & SPINNER (STRICT ID + FACE MANDATORY) ──────────────
 document.getElementById('pubForm')?.addEventListener('submit', function (e) {
-    const hasMedia = (document.getElementById('media_file')?.files?.length > 0) || (document.getElementById('media_cam')?.files?.length > 0);
     const hasId    = (document.getElementById('id_photo')?.files?.length > 0) || (document.getElementById('id_cam')?.files?.length > 0);
     const hasFace  = (document.getElementById('face_photo')?.files?.length > 0) || (document.getElementById('face_cam')?.files?.length > 0);
 
-    if (!hasId && !hasMedia && !hasFace) {
+    if (!hasId || !hasFace) {
         e.preventDefault();
         e.stopPropagation();
+
+        const isTl = (window.getAgriTraceLanguage && window.getAgriTraceLanguage() === 'tl') || document.documentElement.getAttribute('lang') === 'tl';
+        const missing = [];
+        if (!hasId)   missing.push(isTl ? 'Larawan ng ID (ID Photo)' : 'ID Photo');
+        if (!hasFace) missing.push(isTl ? 'Larawan ng Mukha (Face Photo)' : 'Face Photo');
 
         let errBox = document.getElementById('client-upload-error');
         if (!errBox) {
             errBox = document.createElement('div');
             errBox.id = 'client-upload-error';
-            errBox.className = 'err';
-            errBox.innerHTML = '<i class="bi bi-exclamation-triangle-fill" style="margin-right:6px"></i> <strong>Upload Required:</strong> Please upload or capture an ID photo or supporting incident file before submitting.';
+            errBox.className = 'alert alert-e';
             const form = document.getElementById('pubForm');
             form.insertBefore(errBox, form.firstChild);
         }
+
+        const titleText = isTl ? 'Kailangan ang Upload:' : 'Upload Required:';
+        const descText  = isTl
+            ? 'Kinakailangang mag-upload ng parehong <strong>Larawan ng ID</strong> at <strong>Larawan ng Mukha</strong> bago maipasa ang ulat.<br>Kulang: ' + missing.join(' at ')
+            : 'Both a valid <strong>ID Photo</strong> and <strong>Face Photo</strong> are strictly required before submitting this report.<br>Missing: ' + missing.join(' and ');
+
+        errBox.innerHTML = `<i class="bi bi-exclamation-triangle-fill"></i><div><strong>${titleText}</strong> ${descText}</div>`;
         errBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-        const wrapId = document.getElementById('wrap-id');
-        const wrapMedia = document.getElementById('wrap-media');
-        if (wrapId) {
+        const wrapId   = document.getElementById('wrap-id');
+        const wrapFace = document.getElementById('wrap-face');
+        if (!hasId && wrapId) {
             wrapId.style.borderColor = '#ef4444';
             wrapId.style.boxShadow = '0 0 0 2px rgba(239, 68, 68, 0.35)';
         }
-        if (wrapMedia) {
-            wrapMedia.style.borderColor = '#ef4444';
-            wrapMedia.style.boxShadow = '0 0 0 2px rgba(239, 68, 68, 0.35)';
+        if (!hasFace && wrapFace) {
+            wrapFace.style.borderColor = '#ef4444';
+            wrapFace.style.boxShadow = '0 0 0 2px rgba(239, 68, 68, 0.35)';
         }
 
         const btn = document.getElementById('submitBtn');
@@ -766,6 +962,15 @@ document.getElementById('pubForm')?.addEventListener('submit', function (e) {
     btn.disabled = true;
 });
 </script>
-<script src="../assets/js/translator.js"></script>
+<script src="<?= function_exists('app_url') ? app_url('assets/js/translator.js') : 'assets/js/translator.js' ?>"></script>
+<script>
+  if (typeof window.toggleLanguage !== 'function') {
+    (function() {
+      var s = document.createElement('script');
+      s.src = (window.location.pathname.indexOf('/pages/') !== -1) ? '../assets/js/translator.js' : 'assets/js/translator.js';
+      document.body.appendChild(s);
+    })();
+  }
+</script>
 </body>
 </html>

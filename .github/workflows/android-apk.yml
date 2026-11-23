@@ -1,0 +1,69 @@
+name: Build signed AgriTrace+ APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['capacitor.config.json','package.json','www/**','resources/**','android/**','.github/workflows/android-apk.yml']
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Create Android project (first run only; commit /android afterwards)
+        run: test -d android || npx cap add android
+
+      - name: Generate icons and splash
+        run: npx capacitor-assets generate --android
+
+      - name: Patch permissions, orientation, versionCode
+        run: |
+          M=android/app/src/main/AndroidManifest.xml
+          if ! grep -q "ACCESS_FINE_LOCATION" $M; then
+            sed -i 's#<application#<uses-permission android:name="android.permission.CAMERA"/>\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n    <uses-feature android:name="android.hardware.camera" android:required="false"/>\n    <application#' $M
+          fi
+          grep -q 'screenOrientation' $M || sed -i 's#<activity#<activity android:screenOrientation="portrait"#' $M
+          sed -i "s/versionCode [0-9]*/versionCode ${{ github.run_number }}/" android/app/build.gradle
+          sed -i "s/versionName \"[^\"]*\"/versionName \"1.0.${{ github.run_number }}\"/" android/app/build.gradle
+
+      - run: npx cap sync android
+
+      - name: Build release APK (unsigned)
+        working-directory: android
+        run: chmod +x gradlew && ./gradlew assembleRelease --no-daemon
+
+      - name: Align and sign APK
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -e
+          [ -n "$KEYSTORE_B64" ] || { echo "Missing ANDROID_KEYSTORE_BASE64 secret"; exit 1; }
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+          IN=android/app/build/outputs/apk/release/app-release-unsigned.apk
+          $BT/zipalign -p -f 4 $IN aligned.apk
+          $BT/apksigner sign --ks "$RUNNER_TEMP/release.jks" --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:KS_PASS --key-pass env:KEY_PASS --out AgriTracePlus-release.apk aligned.apk
+          $BT/apksigner verify --verbose --print-certs AgriTracePlus-release.apk | tee signature-report.txt
+          $BT/aapt dump badging AgriTracePlus-release.apk | head -5 | tee -a signature-report.txt
+          rm -f "$RUNNER_TEMP/release.jks"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AgriTracePlus-release
+          path: |
+            AgriTracePlus-release.apk
+            signature-report.txt

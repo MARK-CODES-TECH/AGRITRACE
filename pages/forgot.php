@@ -1,10 +1,15 @@
-<?php session_start(); ?>
+<?php 
+require_once __DIR__ . '/init.php';
+require_once dirname(__DIR__) . '/helpers.php';
+$isTagalog = (current_lang() === 'tl');
+$apiDbUrl = function_exists('app_url') ? app_url('api/db.php') : 'api/db.php';
+?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<?= $isTagalog ? 'tl' : 'en' ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Forgot Password | AgriTrace+</title>
+    <title><?= t('Forgot Password') ?> | AgriTrace+</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -138,12 +143,12 @@
                 <i class="bi bi-leaf-fill"></i> Agri<span>Trace+</span>
             </div>
 
-            <h1>Reset Your Password</h1>
-            <p class="subtitle">Enter your email or mobile number. We'll send you a 6-digit verification code.</p>
+            <h1><?= t('Reset Your Password') ?></h1>
+            <p class="subtitle"><?= t("Enter your email or mobile number. We'll send you a 6-digit verification code.") ?></p>
 
             <form id="forgot-form">
                 <div class="form-group">
-                    <label class="form-label" id="input-label">Email or Mobile Number</label>
+                    <label class="form-label" id="input-label"><?= t('Email or Mobile Number') ?></label>
                     <div class="input-wrap">
                         <i class="bi bi-person-badge" id="input-icon"></i>
                         <input type="text" id="forgot-identifier" class="form-input"
@@ -152,14 +157,14 @@
                 </div>
 
                 <button type="submit" class="btn-reset" id="submit-btn">
-                    <span id="btn-text">Send Verification Code</span>
+                    <span id="btn-text"><?= t('Send Verification Code') ?></span>
                     <i class="bi bi-arrow-right" id="btn-icon"></i>
                 </button>
             </form>
 
             <div class="auth-footer">
                 <a href="login.php">
-                    <i class="bi bi-arrow-left"></i> Back to Login
+                    <i class="bi bi-arrow-left"></i> <?= t('Back to Login') ?>
                 </a>
             </div>
         </div>
@@ -206,16 +211,24 @@
             /* Loading state */
             submitBtn.disabled  = true;
             const origText      = btnText.textContent;
-            btnText.textContent = 'Sending Code…';
+            btnText.textContent = (typeof getAgriTraceLanguage === 'function' && getAgriTraceLanguage() === 'tl') ? 'Ipinapadala ang Code…' : 'Sending Code…';
             btnIcon.className   = 'bi bi-arrow-repeat spinner';
 
-            try {
-                const res    = await fetch(`../api/db.php?action=send-otp&identifier=${encodeURIComponent(identifier)}&type=${encodeURIComponent(type)}`);
-                const result = await res.json();
+            const apiDbUrl = '<?= $apiDbUrl ?>' || ((window.location.pathname.indexOf('/pages/') !== -1) ? '../api/db.php' : 'api/db.php');
 
-                if (result.success) {
-                    showToast(type === 'email' ? 'OTP sent! Check your email.' : 'OTP sent! Check your messages.', false);
-                    btnText.textContent = 'Code Sent!';
+            try {
+                const res    = await fetch(`${apiDbUrl}?action=send-otp&identifier=${encodeURIComponent(identifier)}&type=${encodeURIComponent(type)}`);
+                let result = null;
+                try {
+                    result = await res.json();
+                } catch (parseErr) {
+                    throw new Error('Server returned invalid response');
+                }
+
+                if (result && result.success) {
+                    const isTl = (typeof getAgriTraceLanguage === 'function' && getAgriTraceLanguage() === 'tl');
+                    showToast(type === 'email' ? (isTl ? 'Naipadala ang OTP! Tingnan ang iyong email.' : 'OTP sent! Check your email.') : (isTl ? 'Naipadala ang OTP! Tingnan ang iyong mga mensahe.' : 'OTP sent! Check your messages.'), false);
+                    btnText.textContent = isTl ? 'Naipadala ang Code!' : 'Code Sent!';
                     btnIcon.className   = 'bi bi-check2-all';
 
                     /* Redirect to OTP verification page */
@@ -223,10 +236,11 @@
                         window.location.href = `verify-otp.php?type=${encodeURIComponent(type)}&identifier=${encodeURIComponent(identifier)}`;
                     }, 1500);
                 } else {
-                    showToast(result.error || 'Account not found.', true);
+                    showToast((result && result.error) ? result.error : 'Account not found.', true);
                     resetButton(origText);
                 }
-            } catch {
+            } catch (err) {
+                console.error('Forgot OTP error:', err);
                 showToast('Network error. Please try again.', true);
                 resetButton(origText);
             }
@@ -255,6 +269,16 @@
                 toast.style.animation = 'slideOut 0.4s forwards';
                 setTimeout(() => toast.remove(), 400);
             }, 4000);
+        }
+    </script>
+    <script src="<?= function_exists('app_url') ? app_url('assets/js/translator.js') : '../assets/js/translator.js' ?>"></script>
+    <script>
+        if (typeof window.toggleLanguage !== 'function') {
+            (function() {
+                var s = document.createElement('script');
+                s.src = (window.location.pathname.indexOf('/pages/') !== -1) ? '../assets/js/translator.js' : 'assets/js/translator.js';
+                document.body.appendChild(s);
+            })();
         }
     </script>
 </body>

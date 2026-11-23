@@ -24,7 +24,7 @@ $dbHost = getenv('DB_HOST') ?: '127.0.0.1';
 $dbName = getenv('DB_NAME') ?: 'myproject4';
 $dbUser = getenv('DB_USER') ?: 'root';
 $dbPass = getenv('DB_PASS') ?: '';
-$ports  = getenv('DB_PORT') ? [getenv('DB_PORT')] : ['3306', '3307'];
+$ports  = getenv('DB_PORT') ? [getenv('DB_PORT')] : ['3307', '3306'];
 
 $pdo = null;
 $lastError = null;

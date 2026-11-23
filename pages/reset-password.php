@@ -1,4 +1,9 @@
-<?php session_start(); ?>
+<?php 
+require_once __DIR__ . '/init.php';
+require_once dirname(__DIR__) . '/helpers.php';
+$isTagalog = (current_lang() === 'tl');
+$apiDbUrl = function_exists('app_url') ? app_url('api/db.php') : 'api/db.php';
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -569,8 +574,10 @@
             btnText.textContent = 'Resetting…';
             btnIcon.className = 'bi bi-arrow-repeat spinner';
 
+            const apiDbUrl = '<?= $apiDbUrl ?>' || ((window.location.pathname.indexOf('/pages/') !== -1) ? '../api/db.php' : 'api/db.php');
+
             try {
-                const res = await fetch('../api/db.php?action=reset-password', {
+                const res = await fetch(`${apiDbUrl}?action=reset-password`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -579,20 +586,26 @@
                         password: password
                     })
                 });
-                const result = await res.json();
+                let result = null;
+                try {
+                    result = await res.json();
+                } catch (parseErr) {
+                    throw new Error('Server returned invalid response');
+                }
 
-                if (result.success) {
+                if (result && result.success) {
                     btnText.textContent = 'Password Reset!';
                     btnIcon.className = 'bi bi-check2-all';
                     showToast('Password updated! Redirecting to login…', false);
                     setTimeout(() => { window.location.href = 'login.php'; }, 1500);
                 } else {
-                    showToast(result.error || 'Could not reset password.', true);
+                    showToast((result && result.error) ? result.error : 'Could not reset password.', true);
                     submitBtn.disabled = false;
                     btnText.textContent = 'Reset Password';
                     btnIcon.className = 'bi bi-arrow-right';
                 }
-            } catch {
+            } catch (err) {
+                console.error('Reset password error:', err);
                 showToast('Network error. Please try again.', true);
                 submitBtn.disabled = false;
                 btnText.textContent = 'Reset Password';

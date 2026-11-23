@@ -1,4 +1,9 @@
-<?php session_start(); ?>
+<?php 
+require_once __DIR__ . '/init.php';
+require_once dirname(__DIR__) . '/helpers.php';
+$isTagalog = (current_lang() === 'tl');
+$apiDbUrl = function_exists('app_url') ? app_url('api/db.php') : 'api/db.php';
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -339,11 +344,18 @@
             btnText.textContent = 'Verifying…';
             btnIcon.className   = 'bi bi-arrow-repeat spinner';
 
-            try {
-                const res    = await fetch(`../api/db.php?action=verify-otp&identifier=${encodeURIComponent(IDENTIFIER)}&type=${encodeURIComponent(TYPE)}&code=${encodeURIComponent(code)}`);
-                const result = await res.json();
+            const apiDbUrl = '<?= $apiDbUrl ?>' || ((window.location.pathname.indexOf('/pages/') !== -1) ? '../api/db.php' : 'api/db.php');
 
-                if (result.success) {
+            try {
+                const res    = await fetch(`${apiDbUrl}?action=verify-otp&identifier=${encodeURIComponent(IDENTIFIER)}&type=${encodeURIComponent(TYPE)}&code=${encodeURIComponent(code)}`);
+                let result = null;
+                try {
+                    result = await res.json();
+                } catch (parseErr) {
+                    throw new Error('Server returned invalid response');
+                }
+
+                if (result && result.success) {
                     btnText.textContent = 'Verified!';
                     btnIcon.className   = 'bi bi-check2-all';
                     showToast('Identity confirmed! Redirecting…', false);
@@ -353,13 +365,14 @@
                         window.location.href = `reset-password.php?token=${encodeURIComponent(result.token)}&identifier=${encodeURIComponent(IDENTIFIER)}`;
                     }, 1200);
                 } else {
-                    showToast(result.error || 'Incorrect code. Try again.', true);
+                    showToast((result && result.error) ? result.error : 'Incorrect code. Try again.', true);
                     setError();
                     verifyBtn.disabled = true;
                     btnText.textContent = 'Verify Code';
                     btnIcon.className   = 'bi bi-arrow-right';
                 }
-            } catch {
+            } catch (err) {
+                console.error('Verify OTP error:', err);
                 showToast('Network error. Please try again.', true);
                 verifyBtn.disabled  = false;
                 btnText.textContent = 'Verify Code';
@@ -400,20 +413,28 @@
             resendBtn.disabled   = true;
             resendBtn.textContent = 'Sending…';
 
-            try {
-                const res    = await fetch(`../api/db.php?action=send-otp&identifier=${encodeURIComponent(IDENTIFIER)}&type=${encodeURIComponent(TYPE)}`);
-                const result = await res.json();
+            const apiDbUrl = '<?= $apiDbUrl ?>' || ((window.location.pathname.indexOf('/pages/') !== -1) ? '../api/db.php' : 'api/db.php');
 
-                if (result.success) {
+            try {
+                const res    = await fetch(`${apiDbUrl}?action=send-otp&identifier=${encodeURIComponent(IDENTIFIER)}&type=${encodeURIComponent(TYPE)}`);
+                let result = null;
+                try {
+                    result = await res.json();
+                } catch (parseErr) {
+                    throw new Error('Server returned invalid response');
+                }
+
+                if (result && result.success) {
                     showToast('New code sent!', false);
                     boxes.forEach(b => { b.value = ''; b.classList.remove('filled', 'error'); });
                     boxes[0].focus();
                     verifyBtn.disabled = true;
                     startTimer();
                 } else {
-                    showToast(result.error || 'Could not resend code.', true);
+                    showToast((result && result.error) ? result.error : 'Could not resend code.', true);
                 }
-            } catch {
+            } catch (err) {
+                console.error('Resend OTP error:', err);
                 showToast('Network error. Please try again.', true);
             }
 

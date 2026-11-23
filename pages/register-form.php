@@ -1,15 +1,11 @@
 <?php
-session_start();
-
-// Connect to database (same as login.php)
-try {
-    require __DIR__ . '/db_connect.php';
-} catch (Throwable $e) {
-    $db_error = 'Database connection failed';
-}
+require_once __DIR__ . '/../init.php';
 
 // Composer autoload for PHPMailer
-require_once dirname(__DIR__) . '/vendor/autoload.php';
+$vendorAutoload = dirname(__DIR__) . '/vendor/autoload.php';
+if (file_exists($vendorAutoload)) {
+    require_once $vendorAutoload;
+}
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
@@ -92,22 +88,23 @@ $register_success = '';
 $register_error   = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $fname     = trim($_POST['fname'] ?? '');
-    $lname     = trim($_POST['lname'] ?? '');
-    $email     = trim($_POST['email'] ?? '');
-    $mobile    = trim($_POST['mobile'] ?? '');
-    $role      = $_POST['role'] ?? '';
-    $password  = $_POST['password'] ?? '';
-    $cpassword = $_POST['cpassword'] ?? '';
+    $fname          = trim($_POST['fname'] ?? '');
+    $lname          = trim($_POST['lname'] ?? '');
+    $email          = trim($_POST['email'] ?? '');
+    $mobile         = trim($_POST['mobile'] ?? '');
+    $role           = $_POST['role'] ?? 'Farmer';
+    $password       = $_POST['password'] ?? '';
+    $cpassword      = $_POST['cpassword'] ?? '';
+    $phoneVerified  = (!empty($_POST['phone_verified']) && $_POST['phone_verified'] === '1');
 
     // Server-side validation
     $errors = [];
 
-    if (empty($fname) || empty($lname) || empty($email) || empty($mobile) || empty($role) || empty($password)) {
-        $errors[] = "All fields are required.";
+    if (empty($fname) || empty($lname) || empty($mobile) || empty($role) || empty($password)) {
+        $errors[] = "First name, last name, mobile number, role, and password are required.";
     }
 
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    if (!empty($email) && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errors[] = "Invalid email format.";
     }
 
@@ -123,13 +120,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = "You must agree to the Terms and Conditions.";
     }
 
-    // Check for an existing account with this email.
-    // - If it's already verified, block registration (real duplicate).
-    // - If it's unverified but the verification link hasn't expired yet,
-    //   block it too (someone already has a pending confirmation for it).
-    // - If it's unverified AND expired, treat it as abandoned: delete the
-    //   stale row so the email isn't permanently locked out, then proceed.
-    if (empty($errors)) {
+    $cleanMobile = preg_replace('/\D/', '', $mobile);
+    $localMobile = str_starts_with($cleanMobile, '63') ? ('0' . substr($cleanMobile, 2)) : $cleanMobile;
+    $isPhoneVerified = ($phoneVerified || 
+        (isset($_SESSION['phone_verified_mobile']) && $_SESSION['phone_verified_mobile'] === $localMobile));
+
+    if (empty($email) && !$isPhoneVerified) {
+        $errors[] = "Please verify your mobile number with the SMS code before creating your account.";
+    }
+
+    // Check duplicate mobile number
+    if (!empty($cleanMobile) && empty($errors)) {
+        try {
+            $stmtMob = $pdo->prepare("SELECT id FROM users WHERE mobile = ? OR mobile = ?");
+            $stmtMob->execute([$mobile, $cleanMobile]);
+            if ($stmtMob->fetch()) {
+                $errors[] = "This mobile number is already registered. Please log in instead.";
+            }
+        } catch (PDOException $e) {}
+    }
+
+    // Check for existing account with this email (if email was provided)
+    if (!empty($email) && empty($errors)) {
         try {
             $checkStmt = $pdo->prepare(
                 "SELECT id, emailVerified, verifyExpires FROM users WHERE email = ?"
@@ -146,7 +158,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } elseif ($stillPending) {
                     $errors[] = "A confirmation email was already sent to this address. Please check your inbox (or spam folder), or wait for it to expire before trying again.";
                 } else {
-                    // Stale, unverified, expired — safe to remove and let this registration take over.
                     $pdo->prepare("DELETE FROM users WHERE id = ?")->execute([$existing['id']]);
                 }
             }
@@ -161,28 +172,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
             $verifyToken    = bin2hex(random_bytes(32));
 
-            // verifyExpires computed by MySQL (not PHP date()) to avoid any
-            // PHP/MySQL timezone drift when it's later compared with NOW().
+            // If verified via Phone SMS, account is verified and active immediately!
+            $isVerified = $isPhoneVerified ? 1 : 0;
+            $status     = $isPhoneVerified ? 'Active' : 'Pending';
+            $dbEmail    = !empty($email) ? $email : null;
+
             $stmt = $pdo->prepare(
                 "INSERT INTO users
                     (firstName, lastName, email, password, mobile, role, status, emailVerified, verifyToken, verifyExpires)
                  VALUES
-                    (?, ?, ?, ?, ?, ?, 'Pending', 0, ?, DATE_ADD(NOW(), INTERVAL 24 HOUR))"
+                    (?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 24 HOUR))"
             );
-            $stmt->execute([$fname, $lname, $email, $hashedPassword, $mobile, $role, $verifyToken]);
+            $stmt->execute([$fname, $lname, $dbEmail, $hashedPassword, $mobile, $role, $status, $isVerified, $verifyToken]);
 
-            $verifyLink = APP_BASE_URL . '/verify-email.php?token=' . urlencode($verifyToken) . '&email=' . urlencode($email);
-            $sent = sendVerificationEmail($email, $fname, $verifyLink);
+            if ($isPhoneVerified) {
+                unset($_SESSION['phone_verified_mobile']);
+                // Instantly verified via SMS OTP! Auto-redirect to login!
+                header('Location: login.php?registered=1');
+                exit;
+            } elseif (!empty($email)) {
+                $verifyLink = APP_BASE_URL . '/verify-email.php?token=' . urlencode($verifyToken) . '&email=' . urlencode($email);
+                $sent = sendVerificationEmail($email, $fname, $verifyLink);
 
-            if ($sent) {
-                $register_success = "Almost there! We've sent a confirmation link to {$email}. Please check your inbox to verify your email — your account will also need admin approval before you can log in.";
+                if ($sent) {
+                    $register_success = "Almost there! We've sent a confirmation link to {$email}. Please check your inbox to verify your email.";
+                } else {
+                    $register_error = "Your account was created, but we couldn't send the confirmation email. Please contact support.";
+                }
             } else {
-                // Registration still succeeded in the DB, but let the user know
-                // the email didn't go out so they're not left wondering.
-                $register_error = "Your account was created, but we couldn't send the confirmation email. Please contact support to verify your email manually.";
+                header('Location: login.php?registered=1');
+                exit;
             }
         } catch (PDOException $e) {
-            $register_error = "Registration failed. Please try again.";
+            $register_error = "Registration failed: " . $e->getMessage();
             error_log("Registration error: " . $e->getMessage());
         }
     } else {
@@ -889,19 +911,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="email">Email Address</label>
+                            <label class="form-label" for="email">Email Address <span style="font-size:0.75rem; font-weight:400; color:#64748b;">(Optional if registering with mobile)</span></label>
                             <div class="input-wrap">
                                 <i class="bi bi-envelope"></i>
-                                <input id="email" type="email" name="email" class="form-input" placeholder="juan@example.com" value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" required>
+                                <input id="email" type="email" name="email" class="form-input" placeholder="juan@example.com (optional)" value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
                             </div>
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="mobile">Mobile Number</label>
-                            <div class="input-wrap">
-                                <i class="bi bi-phone"></i>
-                                <input id="mobile" type="tel" name="mobile" class="form-input" placeholder="+63 9XX XXX XXXX" value="<?= htmlspecialchars($_POST['mobile'] ?? '') ?>" required>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                <label class="form-label" for="mobile" style="margin-bottom:0;">Mobile Number</label>
+                                <span id="phoneVerifiedBadge" style="display:none; color:#059669; font-weight:700; font-size:0.8rem; background:#ecfdf5; border:1px solid #a7f3d0; padding:2px 8px; border-radius:6px;">
+                                    <i class="bi bi-shield-check"></i> Verified
+                                </span>
                             </div>
+                            <div class="input-wrap" style="position:relative; display:flex; align-items:center;">
+                                <i class="bi bi-phone" style="position:absolute; left:14px; color:#6b7280;"></i>
+                                <input id="mobile" type="tel" name="mobile" class="form-input" placeholder="09XX XXX XXXX" value="<?= htmlspecialchars($_POST['mobile'] ?? '') ?>" required style="padding-right:120px;">
+                                <button type="button" id="btnSendSmsOtp" style="position:absolute; right:6px; top:50%; transform:translateY(-50%); background:#123f33; color:#fff; border:none; padding:7px 14px; border-radius:8px; font-size:0.8rem; font-weight:700; cursor:pointer; transition:all 0.2s ease;">
+                                    Send Code
+                                </button>
+                            </div>
+
+                            <!-- Professional Inline OTP Row -->
+                            <div id="smsOtpGroup" style="display:none; margin-top:10px;">
+                                <div style="display:flex; gap:8px; align-items:center;">
+                                    <input id="smsOtpCode" type="text" class="form-input" placeholder="6-digit code" maxlength="6" inputmode="numeric" autocomplete="one-time-code" style="max-width:160px; font-size:1rem; font-weight:700; letter-spacing:4px; text-align:center; padding:9px 12px;">
+                                    <button type="button" id="btnConfirmSmsOtp" style="background:#10b981; color:#fff; border:none; padding:9px 18px; border-radius:10px; font-size:0.84rem; font-weight:700; cursor:pointer;">
+                                        Verify Code
+                                    </button>
+                                </div>
+                                <div style="font-size:0.78rem; color:#64748b; margin-top:6px;">
+                                    Enter the 6-digit verification code sent to your phone.
+                                </div>
+                            </div>
+
+                            <div id="smsErrorNotice" style="display:none; color:#dc2626; font-size:0.8rem; margin-top:6px; font-weight:500;"></div>
+                            <input type="hidden" name="phone_verified" id="phone_verified" value="0">
+                            <div id="recaptcha-container"></div>
                         </div>
 
                         <div class="form-group">
@@ -1135,6 +1182,186 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = 'CREATING ACCOUNT... <i class="bi bi-arrow-repeat"></i>';
+            });
+        }
+    </script>
+
+    <!-- Firebase SDKs for Phone SMS Authentication -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "<?= defined('FIREBASE_API_KEY') ? FIREBASE_API_KEY : 'AIzaSyCkJ08Mb6c9SFDdkb_M6I_X7ZNYYf0l-3o' ?>",
+            authDomain: "<?= defined('FIREBASE_AUTH_DOMAIN') ? FIREBASE_AUTH_DOMAIN : 'dfms-19927.firebaseapp.com' ?>",
+            projectId: "<?= defined('FIREBASE_PROJECT_ID') ? FIREBASE_PROJECT_ID : 'dfms-19927' ?>",
+            storageBucket: "<?= defined('FIREBASE_STORAGE_BUCKET') ? FIREBASE_STORAGE_BUCKET : 'dfms-19927.firebasestorage.app' ?>",
+            messagingSenderId: "<?= defined('FIREBASE_MESSAGING_SENDER_ID') ? FIREBASE_MESSAGING_SENDER_ID : '430985218377' ?>"
+        };
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const auth = firebase.auth();
+
+        let confirmationResult = null;
+        let recaptchaVerifier = null;
+
+        function getRecaptchaVerifier() {
+            if (!recaptchaVerifier) {
+                recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+                    'size': 'invisible',
+                    'callback': function(response) {
+                        // reCAPTCHA solved
+                    },
+                    'expired-callback': function() {
+                        if (typeof grecaptcha !== 'undefined') {
+                            grecaptcha.reset();
+                        }
+                    }
+                });
+            }
+            return recaptchaVerifier;
+        }
+
+        const btnSendSmsOtp      = document.getElementById('btnSendSmsOtp');
+        const btnConfirmSmsOtp   = document.getElementById('btnConfirmSmsOtp');
+        const smsOtpGroup        = document.getElementById('smsOtpGroup');
+        const smsOtpCode         = document.getElementById('smsOtpCode');
+        const phoneVerifiedBadge = document.getElementById('phoneVerifiedBadge');
+        const smsErrorNotice     = document.getElementById('smsErrorNotice');
+        const phoneVerifiedInput = document.getElementById('phone_verified');
+        const mobileInput        = document.getElementById('mobile');
+        const otpLiveAlert       = document.getElementById('otpLiveAlert');
+
+        if (btnSendSmsOtp) {
+            btnSendSmsOtp.addEventListener('click', function() {
+                if (smsErrorNotice) smsErrorNotice.style.display = 'none';
+                if (otpLiveAlert) otpLiveAlert.style.display = 'none';
+
+                let phone = mobileInput.value.trim().replace(/[\s\-()]/g, '');
+                if (!phone) {
+                    if (smsErrorNotice) {
+                        smsErrorNotice.textContent = 'Please enter your mobile number first.';
+                        smsErrorNotice.style.display = 'block';
+                    }
+                    mobileInput.focus();
+                    return;
+                }
+
+                // Format to international E.164 (+639XXXXXXXXX)
+                if (phone.startsWith('09') && phone.length === 11) {
+                    phone = '+63' + phone.substring(1);
+                } else if (phone.startsWith('9') && phone.length === 10) {
+                    phone = '+63' + phone;
+                } else if (phone.startsWith('63') && phone.length === 12) {
+                    phone = '+' + phone;
+                } else if (!phone.startsWith('+')) {
+                    phone = '+' + phone;
+                }
+
+                btnSendSmsOtp.disabled = true;
+                btnSendSmsOtp.innerHTML = '<i class="bi bi-hourglass-split"></i> Sending...';
+
+                try {
+                    const appVerifier = getRecaptchaVerifier();
+                    auth.signInWithPhoneNumber(phone, appVerifier)
+                        .then((result) => {
+                            confirmationResult = result;
+                            btnSendSmsOtp.disabled = false;
+                            btnSendSmsOtp.innerHTML = 'Resend Code';
+
+                            if (smsOtpGroup) smsOtpGroup.style.display = 'block';
+                            if (smsOtpCode) {
+                                smsOtpCode.value = '';
+                                smsOtpCode.focus();
+                            }
+                        })
+                        .catch((error) => {
+                            console.error('Firebase Phone Auth Error:', error);
+                            btnSendSmsOtp.disabled = false;
+                            btnSendSmsOtp.innerHTML = 'Send Code';
+
+                            let msg = error.message;
+                            if (error.code === 'auth/operation-not-allowed') {
+                                msg = 'Phone authentication is disabled in Firebase. Please enable Phone provider in Firebase Console.';
+                            } else if (error.code === 'auth/invalid-phone-number') {
+                                msg = 'Invalid phone number format. Please enter a valid 11-digit mobile number.';
+                            } else if (error.code === 'auth/quota-exceeded') {
+                                msg = 'Daily SMS quota reached. Please try again later.';
+                            } else if (error.code === 'auth/too-many-requests') {
+                                msg = 'Too many attempts. Please wait a moment before trying again.';
+                            }
+
+                            if (smsErrorNotice) {
+                                smsErrorNotice.textContent = msg;
+                                smsErrorNotice.style.display = 'block';
+                            }
+
+                            if (recaptchaVerifier && typeof grecaptcha !== 'undefined') {
+                                grecaptcha.reset();
+                            }
+                        });
+                } catch (err) {
+                    console.error('Firebase initialization error:', err);
+                    btnSendSmsOtp.disabled = false;
+                    btnSendSmsOtp.innerHTML = 'Send Code';
+                    if (smsErrorNotice) {
+                        smsErrorNotice.textContent = err.message || 'Error initializing verification service.';
+                        smsErrorNotice.style.display = 'block';
+                    }
+                }
+            });
+        }
+
+        if (btnConfirmSmsOtp) {
+            btnConfirmSmsOtp.addEventListener('click', function() {
+                const code = smsOtpCode ? smsOtpCode.value.trim() : '';
+                if (!code || code.length < 6) {
+                    if (smsErrorNotice) {
+                        smsErrorNotice.textContent = 'Please enter the 6-digit verification code sent to your phone.';
+                        smsErrorNotice.style.display = 'block';
+                    }
+                    if (smsOtpCode) smsOtpCode.focus();
+                    return;
+                }
+
+                if (!confirmationResult) {
+                    if (smsErrorNotice) {
+                        smsErrorNotice.textContent = 'Verification session expired. Please click "Resend Code".';
+                        smsErrorNotice.style.display = 'block';
+                    }
+                    return;
+                }
+
+                btnConfirmSmsOtp.disabled = true;
+                btnConfirmSmsOtp.textContent = 'Verifying...';
+
+                confirmationResult.confirm(code)
+                    .then((result) => {
+                        // Successfully verified
+                        phoneVerifiedInput.value = '1';
+                        if (smsOtpGroup) smsOtpGroup.style.display = 'none';
+                        if (btnSendSmsOtp) btnSendSmsOtp.style.display = 'none';
+                        if (smsErrorNotice) smsErrorNotice.style.display = 'none';
+
+                        if (phoneVerifiedBadge) {
+                            phoneVerifiedBadge.style.display = 'inline-block';
+                        }
+
+                        if (mobileInput) {
+                            mobileInput.readOnly = true;
+                            mobileInput.style.backgroundColor = '#f0fdf4';
+                            mobileInput.style.borderColor = '#86efac';
+                        }
+                    })
+                    .catch((error) => {
+                        console.error('Firebase OTP Confirmation Error:', error);
+                        btnConfirmSmsOtp.disabled = false;
+                        btnConfirmSmsOtp.textContent = 'Verify Code';
+                        if (smsErrorNotice) {
+                            smsErrorNotice.textContent = 'Invalid verification code. Please check your SMS and try again.';
+                            smsErrorNotice.style.display = 'block';
+                        }
+                    });
             });
         }
     </script>

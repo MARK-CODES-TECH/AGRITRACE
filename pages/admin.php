@@ -1,5 +1,7 @@
 <?php
-require_once __DIR__ . '/init.php';
+require_once dirname(__DIR__) . '/init.php';
+require_once dirname(__DIR__) . '/helpers.php';
+require_once __DIR__ . '/export_helper.php';
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
     header('Location: login.php?redirect=' . urlencode($_SERVER['PHP_SELF']));
@@ -201,8 +203,10 @@ function getCombinedIncidents(PDO $pdo): array {
 
 if (isset($_GET['export'])) {
     $export = strtolower((string)$_GET['export']);
+    $exportRows = null;
+
     if ($export === 'farmers') {
-        $rows = $pdo->query("
+        $exportRows = $pdo->query("
             SELECT u.id, u.firstName, u.lastName, u.email, u.mobile, u.status, u.createdAt,
                    COUNT(DISTINCT f.id) AS farms,
                    COALESCE(SUM(l.qty), 0) AS livestock
@@ -213,19 +217,16 @@ if (isset($_GET['export'])) {
             GROUP BY u.id
             ORDER BY u.createdAt DESC
         ")->fetchAll(PDO::FETCH_ASSOC);
-        sendCsv('agritrace_farmers_' . date('Ymd_His') . '.csv', $rows);
+    } elseif ($export === 'farms') {
+        $exportRows = getDistrictFarms($pdo);
+    } elseif ($export === 'livestock') {
+        $exportRows = getDistrictLivestock($pdo);
+    } elseif ($export === 'incidents') {
+        $exportRows = getCombinedIncidents($pdo);
     }
 
-    if ($export === 'farms') {
-        sendCsv('agritrace_first_district_farms_' . date('Ymd_His') . '.csv', getDistrictFarms($pdo));
-    }
-
-    if ($export === 'livestock') {
-        sendCsv('agritrace_livestock_' . date('Ymd_His') . '.csv', getDistrictLivestock($pdo));
-    }
-
-    if ($export === 'incidents') {
-        sendCsv('agritrace_incidents_' . date('Ymd_His') . '.csv', getCombinedIncidents($pdo));
+    if ($exportRows !== null) {
+        agxReport($export, $exportRows, $adminName);   // sends the file and exits
     }
 }
 
@@ -316,6 +317,62 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     setFlash('error', 'Invalid report status.');
                 }
                 redirectAdmin('incidents');
+
+            case 'delete_user':
+                if ($recordId === $adminId) {
+                    setFlash('error', 'Action prohibited: You cannot delete your own active administrator account.');
+                    redirectAdmin('users');
+                }
+
+                $stmtU = $pdo->prepare("SELECT id, firstName, lastName, email, role FROM users WHERE id = ? LIMIT 1");
+                $stmtU->execute([$recordId]);
+                $uToDelete = $stmtU->fetch(PDO::FETCH_ASSOC);
+
+                if (!$uToDelete) {
+                    setFlash('error', 'User not found or already removed.');
+                    redirectAdmin('users');
+                }
+
+                try {
+                    $pdo->beginTransaction();
+
+                    // 1. Clear foreign key references that do not CASCADE
+                    $pdo->prepare("UPDATE farms SET approved_by = NULL WHERE approved_by = ?")->execute([$recordId]);
+                    $pdo->prepare("UPDATE farms SET rejected_by = NULL WHERE rejected_by = ?")->execute([$recordId]);
+                    $pdo->prepare("UPDATE incidents SET reporterId = NULL WHERE reporterId = ?")->execute([$recordId]);
+                    $pdo->prepare("UPDATE audit_log SET userId = NULL WHERE userId = ?")->execute([$recordId]);
+
+                    // 2. Remove notifications, chat messages, and user profiles
+                    $pdo->prepare("DELETE FROM notifications WHERE user_id = ?")->execute([$recordId]);
+                    $pdo->prepare("DELETE FROM chat_messages WHERE sender_id = ? OR receiver_id = ?")->execute([$recordId, $recordId]);
+                    $pdo->prepare("DELETE FROM messages WHERE sender_id = ? OR receiver_id = ?")->execute([$recordId, $recordId]);
+                    $pdo->prepare("DELETE FROM officer_profiles WHERE user_id = ?")->execute([$recordId]);
+                    $pdo->prepare("DELETE FROM officer_permissions WHERE officer_id = ?")->execute([$recordId]);
+                    $pdo->prepare("DELETE FROM farmer_profiles WHERE user_id = ?")->execute([$recordId]);
+
+                    // 3. Remove farms owned by user (cascades to livestock, etc.)
+                    $pdo->prepare("DELETE FROM farms WHERE ownerId = ?")->execute([$recordId]);
+
+                    // 4. Finally delete the user account
+                    $stmtDel = $pdo->prepare("DELETE FROM users WHERE id = ?");
+                    $stmtDel->execute([$recordId]);
+
+                    // 5. Record audit trail
+                    addAudit($pdo, $adminId, 'DELETE_USER', 'users', $recordId, [
+                        'name'  => $uToDelete['firstName'] . ' ' . $uToDelete['lastName'],
+                        'email' => $uToDelete['email'],
+                        'role'  => $uToDelete['role']
+                    ]);
+
+                    $pdo->commit();
+                    setFlash('success', 'User account ' . htmlspecialchars($uToDelete['firstName'] . ' ' . $uToDelete['lastName']) . ' (# ' . $recordId . ') was permanently deleted.');
+                } catch (Exception $e) {
+                    if ($pdo->inTransaction()) {
+                        $pdo->rollBack();
+                    }
+                    setFlash('error', 'Failed to delete user: ' . $e->getMessage());
+                }
+                redirectAdmin('users');
 
             default:
                 setFlash('error', 'Unknown admin action.');
@@ -1682,6 +1739,17 @@ unset($_SESSION['admin_flash']);
             border-color: #dc2626;
         }
 
+        .btn-act-delete, .btn-act-icon.btn-act-delete {
+            background: #fff1f2;
+            color: #be123c;
+            border-color: #fecdd3;
+        }
+        .btn-act-delete:hover, .btn-act-icon.btn-act-delete:hover {
+            background: #e11d48;
+            color: #ffffff;
+            border-color: #e11d48;
+        }
+
         .btn-act-warning, .btn-act-icon.btn-act-warning {
             background: #fffbeb;
             color: #b45309;
@@ -2533,7 +2601,7 @@ unset($_SESSION['admin_flash']);
                     <span>System Active</span>
                 </div>
 
-                <a href="../maps/farm-map.php" target="_blank" rel="noopener" class="btn-top btn-top-primary">
+                <a href="<?= app_url('maps/farm-map.php') ?>" target="_blank" rel="noopener" class="btn-top btn-top-primary">
                     <i class="bi bi-map"></i>
                     <span>Live Map View</span>
                 </a>
@@ -2863,7 +2931,7 @@ unset($_SESSION['admin_flash']);
                     </div>
                     <div style="display:flex; gap:10px;">
                         <a class="btn-top btn-top-ghost" href="?export=farms"><i class="bi bi-download"></i> Export CSV</a>
-                        <a class="btn-top btn-top-primary" href="../maps/farm-map.php" target="_blank" rel="noopener"><i class="bi bi-map"></i> View Map</a>
+                        <a class="btn-top btn-top-primary" href="<?= app_url('maps/farm-map.php') ?>" target="_blank" rel="noopener"><i class="bi bi-map"></i> View Map</a>
                     </div>
                 </div>
 
@@ -3161,6 +3229,15 @@ unset($_SESSION['admin_flash']);
                                                         <i class="bi bi-shield-lock-fill"></i>
                                                     </span>
                                                 <?php endif; ?>
+
+                                                <?php if ((int)$user['id'] !== $adminId): ?>
+                                                    <form method="post" style="display:inline;" onsubmit="return confirm('Are you sure you want to permanently delete user <?= h(addslashes($user['firstName'] . ' ' . $user['lastName'])) ?> (ID #<?= (int)$user['id'] ?>)? All associated data will be removed. This cannot be undone.');">
+                                                        <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>">
+                                                        <input type="hidden" name="action" value="delete_user">
+                                                        <input type="hidden" name="id" value="<?= (int)$user['id'] ?>">
+                                                        <button class="btn-act-icon btn-act-delete" type="submit" title="Permanently Delete User"><i class="bi bi-trash3-fill"></i></button>
+                                                    </form>
+                                                <?php endif; ?>
                                             </div>
                                         </td>
                                     </tr>
@@ -3264,14 +3341,14 @@ unset($_SESSION['admin_flash']);
                         <h3>Camarines Sur 1st District GIS Monitoring</h3>
                         <p>Live spatial tracking of registered farms, disease alerts, and livestock density.</p>
                     </div>
-                    <a class="btn-top btn-top-primary" href="../maps/farm-map.php" target="_blank" rel="noopener">
+                    <a class="btn-top btn-top-primary" href="<?= app_url('maps/farm-map.php') ?>" target="_blank" rel="noopener">
                         <i class="bi bi-arrows-fullscreen"></i>
                         <span>Full Map View</span>
                     </a>
                 </div>
 
                 <div class="map-section-card">
-                    <iframe class="map-frame-view" src="../maps/farm-map.php" title="Camarines Sur 1st District GIS Map" allow="fullscreen" allowfullscreen></iframe>
+                    <iframe class="map-frame-view" src="<?= app_url('maps/farm-map.php') ?>" title="Camarines Sur 1st District GIS Map" allow="fullscreen" allowfullscreen></iframe>
                 </div>
             </section>
 
@@ -3389,8 +3466,24 @@ unset($_SESSION['admin_flash']);
                                         </td>
                                         <td><strong><?= h($log['tableName']) ?></strong></td>
                                         <td><span style="font-family:monospace; color:var(--text-muted);">#<?= (int)$log['recordId'] ?></span></td>
-                                        <td style="font-size:0.75rem; color:var(--text-muted); max-width:320px; word-break:break-word;">
-                                            <?= h($log['details']) ?>
+                                        <td style="font-size:0.75rem; color:var(--text-muted); max-width:340px; word-break:break-word;">
+                                            <?php
+                                            $rawDet = trim($log['details'] ?? '');
+                                            $decoded = json_decode($rawDet, true);
+                                            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded) && !empty($decoded)): ?>
+                                                <div style="display:flex; flex-wrap:wrap; gap:4px;">
+                                                    <?php foreach ($decoded as $k => $v): 
+                                                        $valStr = is_array($v) ? json_encode($v) : (string)$v;
+                                                    ?>
+                                                        <span style="display:inline-flex; align-items:center; gap:4px; background:#f1f5f9; border:1px solid #e2e8f0; padding:2px 7px; border-radius:6px; font-size:0.72rem; color:#334155;">
+                                                            <strong style="color:#059669; font-weight:700;"><?= h(ucwords(str_replace('_', ' ', $k))) ?>:</strong>
+                                                            <span><?= h($valStr) ?></span>
+                                                        </span>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            <?php else: ?>
+                                                <?= h($rawDet ?: '-') ?>
+                                            <?php endif; ?>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -3648,6 +3741,6 @@ unset($_SESSION['admin_flash']);
         });
         try { localStorage.removeItem('agritrace_admin_font'); } catch (e) {}
     </script>
-    <script src="../assets/js/translator.js"></script>
+    <script src="<?= app_url('assets/js/translator.js') ?>"></script>
 </body>
 </html>

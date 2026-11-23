@@ -53,14 +53,12 @@ header('Content-Type: application/json');
 
 switch($action) {
 
-    // ── List farmers & agriculture officials ──────────────────────────────
+    // ── List farmers (Peer Farmer Chat only) ──────────────────────────────
     case 'list_farmers':
     case 'list_contacts':
         $stmt = $pdo->prepare("
             SELECT u.id, u.firstName, u.lastName, u.role, u.mobile,
-                op.position as officer_position,
-                op.department as officer_dept,
-                op.municipality as officer_muni,
+                fp.profile_pix,
                 (SELECT COUNT(*) FROM messages m WHERE m.sender_id=u.id AND m.receiver_id=? AND m.is_read=0) AS unread,
                 (SELECT m2.message FROM messages m2 
                  WHERE (m2.sender_id=u.id AND m2.receiver_id=?) OR (m2.sender_id=? AND m2.receiver_id=u.id)
@@ -69,9 +67,9 @@ switch($action) {
                  WHERE (m2.sender_id=u.id AND m2.receiver_id=?) OR (m2.sender_id=? AND m2.receiver_id=u.id)
                  ORDER BY m2.id DESC LIMIT 1) AS last_msg_time
             FROM users u
-            LEFT JOIN officer_profiles op ON op.user_id = u.id
-            WHERE u.id != ? AND u.role IN ('Farmer', 'Agriculture Official') AND u.status='Active'
-            ORDER BY (last_msg_time IS NOT NULL) DESC, last_msg_time DESC, (u.role='Agriculture Official') DESC, u.firstName ASC
+            LEFT JOIN farmer_profiles fp ON fp.user_id = u.id
+            WHERE u.id != ? AND u.role = 'Farmer' AND u.status='Active'
+            ORDER BY (last_msg_time IS NOT NULL) DESC, last_msg_time DESC, u.firstName ASC
         ");
         $stmt->execute([$userId, $userId, $userId, $userId, $userId, $userId]);
         echo json_encode(['success'=>true,'farmers'=>$stmt->fetchAll(PDO::FETCH_ASSOC)]);

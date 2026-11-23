@@ -10,16 +10,20 @@ try {
 
 $login_error = '';
 $login_success = false;
-$info_message = isset($_GET['logged_out']) ? 'You have been logged out successfully.' : '';
+$info_message = isset($_GET['logged_out']) ? 'You have been logged out successfully.' : (isset($_GET['registered']) ? 'Account registered successfully! You can now log in.' : '');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-    $email = trim($_POST['email'] ?? '');
+    $identifier = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
     
     if (isset($pdo)) {
         try {
-            $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ? AND status = 'Active'");
-            $stmt->execute([$email]);
+            $cleanMobile = preg_replace('/\D/', '', $identifier);
+            $localMobile = str_starts_with($cleanMobile, '63') ? ('0' . substr($cleanMobile, 2)) : $cleanMobile;
+            $intlMobile  = str_starts_with($cleanMobile, '09') ? ('+63' . substr($cleanMobile, 1)) : ('+' . $cleanMobile);
+
+            $stmt = $pdo->prepare("SELECT * FROM users WHERE (email = ? OR mobile = ? OR mobile = ? OR mobile = ? OR mobile = ?) AND status = 'Active' LIMIT 1");
+            $stmt->execute([$identifier, $identifier, $cleanMobile, $localMobile, $intlMobile]);
             $user = $stmt->fetch();
             
             if ($user && password_verify($password, $user['password'])) {
@@ -39,7 +43,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 exit;
                 
             } else {
-                $login_error = 'Invalid email or password';
+                $login_error = 'Invalid email/mobile number or password';
             }
         } catch (PDOException $e) {
             $login_error = 'Database query failed';
@@ -514,10 +518,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
                 <form method="POST" id="loginForm" novalidate>
                     <div class="form-group">
-                        <label class="form-label" for="email">Email Address</label>
+                        <label class="form-label" for="email">Email or Mobile Number</label>
                         <div class="input-wrap">
-                            <i class="bi bi-envelope"></i>
-                            <input id="email" type="email" name="email" class="form-input" placeholder="juan@example.com" required autofocus>
+                            <i class="bi bi-person-badge"></i>
+                            <input id="email" type="text" name="email" class="form-input" placeholder="you@example.com or 09171234567" required autofocus>
                         </div>
                     </div>
 
@@ -538,17 +542,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 <div class="footer-links">
                     <a href="register-form.php">Create Account</a>
                     <a href="forgot.php">Forgot Password?</a>
-                </div>
-
-                <div style="margin-top: 14px; padding: 10px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px; text-align: center;">
-                    <div style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">
-                        <i class="bi bi-lightning-charge-fill" style="color: #f59e0b;"></i> Fast Defense Sign-In (Localhost)
-                    </div>
-                    <div style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;">
-                        <a href="quick_login.php?role=Admin" style="padding: 4px 10px; background: #059669; color: #fff; border-radius: 8px; font-size: 0.75rem; text-decoration: none; font-weight: 600;">👑 Admin</a>
-                        <a href="quick_login.php?role=Agriculture+Official" style="padding: 4px 10px; background: #0284c7; color: #fff; border-radius: 8px; font-size: 0.75rem; text-decoration: none; font-weight: 600;">🌾 DA Official</a>
-                        <a href="quick_login.php?role=Farmer" style="padding: 4px 10px; background: #d97706; color: #fff; border-radius: 8px; font-size: 0.75rem; text-decoration: none; font-weight: 600;">🚜 Farmer</a>
-                    </div>
                 </div>
 
                 <div class="divider"></div>

@@ -1,0 +1,14 @@
+{
+  "appId": "ph.agritraceplus.app",
+  "appName": "AgriTrace+",
+  "webDir": "www",
+  "server": {
+    "url": "https://blueviolet-chamois-367904.hostingersite.com",
+    "cleartext": false,
+    "allowNavigation": ["blueviolet-chamois-367904.hostingersite.com"]
+  },
+  "android": { "allowMixedContent": false },
+  "plugins": {
+    "SplashScreen": { "launchShowDuration": 2000, "backgroundColor": "#2e7d32", "showSpinner": false }
+  }
+}

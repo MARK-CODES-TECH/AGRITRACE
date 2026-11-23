@@ -140,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="contact-card">
           <i class="bi bi-geo-alt-fill"></i>
           <h5>Address</h5>
-          <p>Manila, Philippines</p>
+          <p>Camarines Sur, Philippines</p>
         </div>
       </div>
 
