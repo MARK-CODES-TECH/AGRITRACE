@@ -19,12 +19,13 @@ if (file_exists($envFile)) {
     }
 }
 
-// Smart database connection: Supports standard port 3306 and secondary 3307 automatically
+// Smart database connection: Supports local XAMPP and Hostinger production automatically
+$isHostinger = (is_dir('/domains') || file_exists('/home/u177927174') || strpos(__DIR__, 'u177927174') !== false);
 $dbHost = getenv('DB_HOST') ?: '127.0.0.1';
-$dbName = getenv('DB_NAME') ?: 'myproject4';
-$dbUser = getenv('DB_USER') ?: 'root';
-$dbPass = getenv('DB_PASS') ?: '';
-$ports  = getenv('DB_PORT') ? [getenv('DB_PORT')] : ['3307', '3306'];
+$dbName = getenv('DB_NAME') ?: ($isHostinger ? 'u177927174_myproject4' : 'myproject4');
+$dbUser = getenv('DB_USER') ?: ($isHostinger ? 'u177927174_root' : 'root');
+$dbPass = getenv('DB_PASS') !== false ? getenv('DB_PASS') : ($isHostinger ? 'Agritrace1' : '');
+$ports  = getenv('DB_PORT') ? [getenv('DB_PORT')] : ['3306', '3307'];
 
 $pdo = null;
 $lastError = null;
