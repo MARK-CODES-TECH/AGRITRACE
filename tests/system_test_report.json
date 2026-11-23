@@ -1,5 +1,5 @@
 {
-    "timestamp": "2026-11-23T12:04:03+01:00",
+    "timestamp": "2026-11-23T12:29:15+01:00",
     "summary": {
         "total": 26,
         "passed": 26,
@@ -72,13 +72,13 @@
             "category": "Farmer Features",
             "name": "farmer.php page load",
             "status": "PASS",
-            "details": "Loaded 200 OK (size: 230701 bytes, CSRF extracted)"
+            "details": "Loaded 200 OK (size: 229934 bytes, CSRF extracted)"
         },
         {
             "category": "Farmer Features",
             "name": "api\/register_farm.php",
             "status": "PASS",
-            "details": "Created Farm ID: 14 in Sipocot"
+            "details": "Created Farm ID: 15 in Sipocot"
         },
         {
             "category": "Farmer Features",
@@ -96,7 +96,7 @@
             "category": "Farmer Features",
             "name": "api\/report_incident.php",
             "status": "PASS",
-            "details": "Reported Incident ID: 11"
+            "details": "Reported Incident ID: 12"
         },
         {
             "category": "Farmer Features",
@@ -132,13 +132,13 @@
             "category": "Official Features",
             "name": "api\/approve_farm.php",
             "status": "PASS",
-            "details": "Approved Farm ID: 14"
+            "details": "Approved Farm ID: 15"
         },
         {
             "category": "Official Features",
             "name": "api\/resolve_incident.php",
             "status": "PASS",
-            "details": "Resolved Incident ID: 11"
+            "details": "Resolved Incident ID: 12"
         },
         {
             "category": "Public Reporting",
@@ -150,7 +150,7 @@
             "category": "Admin Features",
             "name": "admin.php page load",
             "status": "PASS",
-            "details": "Loaded 200 OK (size: 379094 bytes)"
+            "details": "Loaded 200 OK (size: 388094 bytes)"
         },
         {
             "category": "Admin Features",

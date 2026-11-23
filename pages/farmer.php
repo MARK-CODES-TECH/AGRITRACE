@@ -142,8 +142,8 @@ if ($requestMethod === 'POST' && isset($_POST['action']) && $_POST['action'] ===
             ]);
         $farmId = $pdo->lastInsertId();
 
-        // Insert per-type livestock counts from dynamic rows
-        $animalTypes = ['Cattle','Swine','Poultry','Goat','Carabao','Horse','Sheep','Rabbit'];
+        // Insert per-type livestock counts from dynamic rows (Philippine Livestock)
+        $animalTypes = ['Swine','Poultry','Carabao','Cattle','Goat','Sheep'];
         foreach($animalTypes as $aType) {
             $qtyKey   = 'lv_qty_'.strtolower($aType);
             $tagKey   = 'lv_tag_'.strtolower($aType);
@@ -585,23 +585,21 @@ $stNotifs = $pdo->prepare("SELECT * FROM notifications WHERE user_id=? ORDER BY 
 $stNotifs->execute([$userId]);
 $notificationsData = $stNotifs->fetchAll();
 
-// Animal icons & emoji map
-$animalEmoji = ['Cattle'=>'🐄','Swine'=>'🐖','Poultry'=>'🐓','Goat'=>'🐐','Carabao'=>'🐃','Horse'=>'🐴','Sheep'=>'🐑','Rabbit'=>'🐇'];
-$allAnimalTypes = ['Cattle','Swine','Poultry','Goat','Carabao','Horse','Sheep','Rabbit'];
+// Animal icons & emoji map (Philippine Livestock & Poultry)
+$animalEmoji = ['Swine'=>'🐖','Poultry'=>'🐓','Carabao'=>'🐃','Cattle'=>'🐄','Goat'=>'🐐','Sheep'=>'🐑'];
+$allAnimalTypes = ['Swine','Poultry','Carabao','Cattle','Goat','Sheep'];
 
 function healthBadge($s){$map=['Healthy'=>'badge-healthy','Sick'=>'badge-sick','Recovered'=>'badge-approved','Deceased'=>'badge-pending'];return $map[$s]??'badge-pending';}
 function statusBadge($s){$map=['Pending'=>'badge-pending','Approved'=>'badge-approved','Rejected'=>'badge-rejected','Active'=>'badge-approved','Resolved'=>'badge-approved','In Progress'=>'badge-pending','Closed'=>'badge-pending'];return $map[$s]??'badge-pending';}
-function animalIcon($type){$map=['Cattle'=>'bi-cow-fill','Swine'=>'bi-pig-fill','Poultry'=>'bi-egg-fill','Goat'=>'bi-bag-fill','Carabao'=>'bi-box2-fill','Horse'=>'bi-wind','Sheep'=>'bi-cloud-fill','Rabbit'=>'bi-circle-fill'];return $map[$type]??'bi-box-fill';}
+function animalIcon($type){$map=['Swine'=>'bi-pig-fill','Poultry'=>'bi-egg-fill','Carabao'=>'bi-box2-fill','Cattle'=>'bi-cow-fill','Goat'=>'bi-bag-fill','Sheep'=>'bi-cloud-fill'];return $map[$type]??'bi-box-fill';}
 function getAnimalTheme($type){
     $themes = [
         'Swine'   => ['bg'=>'linear-gradient(135deg,#fdf2f8,#fce7f3)','color'=>'#db2777'],
-        'Cattle'  => ['bg'=>'linear-gradient(135deg,#fffbeb,#fef3c7)','color'=>'#d97706'],
         'Poultry' => ['bg'=>'linear-gradient(135deg,#fff7ed,#ffedd5)','color'=>'#ea580c'],
-        'Goat'    => ['bg'=>'linear-gradient(135deg,#ecfdf5,#d1fae5)','color'=>'#059669'],
         'Carabao' => ['bg'=>'linear-gradient(135deg,#f8fafc,#e2e8f0)','color'=>'#334155'],
-        'Horse'   => ['bg'=>'linear-gradient(135deg,#f5f3ff,#ede9fe)','color'=>'#7c3aed'],
+        'Cattle'  => ['bg'=>'linear-gradient(135deg,#fffbeb,#fef3c7)','color'=>'#d97706'],
+        'Goat'    => ['bg'=>'linear-gradient(135deg,#ecfdf5,#d1fae5)','color'=>'#059669'],
         'Sheep'   => ['bg'=>'linear-gradient(135deg,#f8fafc,#f1f5f9)','color'=>'#475569'],
-        'Rabbit'  => ['bg'=>'linear-gradient(135deg,#fdf4ff,#fae8ff)','color'=>'#c026d3'],
     ];
     return $themes[$type] ?? ['bg'=>'linear-gradient(135deg,#ecfdf5,#d1fae5)','color'=>'#059669'];
 }
@@ -3037,8 +3035,8 @@ body:not(.sidebar-autohide) .btn-drawer-pin {
 
   $approvedFarms = count(array_filter($farmsData, fn($f) => $f['status'] === 'Approved'));
   $activeCerts   = count(array_filter($certsData, fn($c) => ($c['status'] ?? '') === 'Active'));
-  $animalColors  = ['Cattle'=>'#f59e0b','Swine'=>'#ec4899','Poultry'=>'#f97316','Goat'=>'#8b5cf6','Carabao'=>'#64748b','Horse'=>'#92400e','Sheep'=>'#0ea5e9','Rabbit'=>'#14b8a6'];
-  $animalEmojis  = ['Cattle'=>'🐄','Swine'=>'🐖','Poultry'=>'🐓','Goat'=>'🐐','Carabao'=>'🐃','Horse'=>'🐴','Sheep'=>'🐑','Rabbit'=>'🐇'];
+  $animalColors  = ['Swine'=>'#ec4899','Poultry'=>'#f97316','Carabao'=>'#64748b','Cattle'=>'#f59e0b','Goat'=>'#8b5cf6','Sheep'=>'#0ea5e9'];
+  $animalEmojis  = ['Swine'=>'🐖','Poultry'=>'🐓','Carabao'=>'🐃','Cattle'=>'🐄','Goat'=>'🐐','Sheep'=>'🐑'];
   $maxType = !empty($lvByType) ? max($lvByType) : 1;
   $recentIncidents = array_slice($incidentsData, 0, 4);
   $recentNotifs    = array_slice($notificationsData, 0, 4);
@@ -4811,7 +4809,7 @@ function syncFarmCb(label){const cb=label.querySelector('input[type="checkbox"]'
 
 // ── DYNAMIC LIVESTOCK ROWS ────────────────────────────────────────────────────
 const addedAnimalTypes = new Set();
-const animalEmojis = {Cattle:'🐄',Swine:'🐖',Poultry:'🐓',Goat:'🐐',Carabao:'🐃',Horse:'🐴',Sheep:'🐑',Rabbit:'🐇'};
+const animalEmojis = {Swine:'🐖',Poultry:'🐓',Carabao:'🐃',Cattle:'🐄',Goat:'🐐',Sheep:'🐑'};
 
 function toggleAnimalPicker(){
   const wrap=document.getElementById('animalPickerWrap');
@@ -4874,70 +4872,56 @@ function removeAnimalRow(btn,type){
 
 // ── PHILIPPINE LIVESTOCK BREED MAPPINGS ──────────────────────────────────────
 const LIVESTOCK_BREEDS = {
-  'Poultry': [
-    'Broiler (Meat - Cobb 500 / Ross 308)',
-    'Layer (Table Eggs - Lohmann / Hy-Line Brown)',
-    'Philippine Native Chicken (Manok Tagalog / Darag / Banaba)',
-    'Camarines Native Chicken (Bicol Native)',
-    'Free-Range Colored Broiler (Sasso / Kabir)',
-    'Philippine Mallard Duck (Itik / Pateros - Balut & Penoy)',
-    'Muscovy Duck (Pato / Bibe - Meat)',
-    'Pekin Duck (Commercial Meat)',
-    'Khaki Campbell Duck (Egg Producer)',
-    'Japanese / Coturnix Quail (Pugo - Kwek-Kwek & Table Eggs)',
-    'Turkey (Pabo)',
-    'Geese (Gansa)',
-    'Pigeon (Kalapati / Squab)'
-  ],
   'Swine': [
-    'Landrace (Maternal Line - Large Drooping Ears)',
-    'Large White / Yorkshire (Prolific / Erect Ears)',
-    'Duroc (Terminal Sire - Red / High Marbling)',
-    'Pietrain (Terminal Sire - Spotted / Ultra-Lean)',
-    'Hampshire (Black with White Belt)',
-    'Commercial Hybrid (PIC / Topigs Norsvin / Hypor)',
     'Philippine Native Pig (Baboy Damo / Tagalog / Markaduke / Q-Black)',
     'Upgraded F1 Cross (Krusador - Native x Exotic)',
-    'Lechonero Native Pig (Pang-Lechon)'
+    'Landrace (Pabaya / Maternal White - Drooping Ears)',
+    'Large White / Yorkshire (Prolific White - Erect Ears)',
+    'Duroc (Barako / Red Terminal Sire - High Marbling)',
+    'Pietrain (Spotted / Brawny Meat - Ultra Lean)',
+    'Hampshire (Belted Black with White Shoulder)',
+    'Commercial Hybrid (PIC / Topigs Norsvin / Hypor)',
+    'Lechonero Pig (Pang-Lechon Native/Cross - 20-35kg)'
   ],
-  'Cattle': [
-    'American Brahman (Heat & Tick Resistant Beef)',
-    'Philippine Native Cattle (Batangas / Ilocos)',
-    'Simbrah Cross (Simmental x Brahman)',
-    'Brangus Cross (Brahman x Angus)',
-    'Tropical Dairy Cattle (Holstein-Friesian x Sahiwal)',
-    'Jersey Cross'
+  'Poultry': [
+    'Broiler (Commercial White Meat - Cobb 500 / Ross 308)',
+    'Layer (Brown Table Eggs - Lohmann / Hy-Line Brown)',
+    'Philippine Native Chicken (Manok Tagalog / Darag / Banaba)',
+    'Camarines Native Chicken (Bicol Local Native)',
+    'Free-Range Colored Chicken (Sasso / Kabir)',
+    'Philippine Mallard Duck (Itik / Pateros - Balut & Penoy)',
+    'Muscovy Duck (Pato / Bibe - Meat)',
+    'Pekin Duck (Commercial Duck Meat)',
+    'Khaki Campbell Duck (Table Egg Producer)',
+    'Japanese / Coturnix Quail (Pugo - Kwek-Kwek & Table Eggs)',
+    'Fighting Cock / Gamefowl (Texas / Tupada / Manok Pansabong)',
+    'Turkey (Pabo)'
   ],
   'Carabao': [
     'Philippine Carabao (Native Swamp Buffalo / Kalabaw)',
-    'Bulgarian Murrah Buffalo (PCC High-Yield Dairy Cross)',
-    'Italian Mediterranean Buffalo',
-    'Upgraded Cross (50% Murrah x 50% Native)'
+    'Bulgarian Murrah Buffalo (PCC High-Yield Dairy / Gatas)',
+    'Upgraded Murrah x Native (50-50 Cross)',
+    'Italian Mediterranean Buffalo'
+  ],
+  'Cattle': [
+    'Philippine Native Cattle (Batangas / Ilocos Baka)',
+    'American Brahman (Humped Heat & Tick Resistant Beef)',
+    'Simbrah Cross (Simmental x Brahman)',
+    'Brangus Cross (Brahman x Angus)',
+    'Tropical Dairy Cattle (Holstein-Friesian x Sahiwal)'
   ],
   'Goat': [
-    'Philippine Native Goat (Kambing)',
-    'Anglo-Nubian (Dual Purpose Dairy & Meat)',
+    'Philippine Native Goat (Kambing Tagalog)',
+    'Anglo-Nubian (Tainga-laylay / Dual Purpose Dairy & Meat)',
     'Boer (Heavy Meat Terminal Buck)',
-    'Saanen (High Milk Dairy Goat)',
-    'Alpine / Toggenburg',
-    'Upgraded Cross'
+    'Saanen (White Dairy Goat)',
+    'Upgraded Cross (Native x Boer/Nubian)'
   ],
   'Sheep': [
-    'Philippine Native Sheep',
+    'Philippine Native Sheep (Tupa)',
     'Dorper (Meat Hair Sheep)',
-    'St. Croix / Katahdin',
-    'Barbados Blackbelly'
-  ],
-  'Horse': [
-    'Philippine Native Pony',
-    'Quarter Horse Cross',
-    'Thoroughbred Cross'
-  ],
-  'Rabbit': [
-    'New Zealand White (Meat)',
-    'Californian',
-    'Flemish Giant',
-    'Philippine Local Mixed'
+    'Barbados Blackbelly',
+    'St. Croix / Katahdin'
   ]
 };
 
