@@ -425,7 +425,7 @@ if ($requestMethod === 'POST' && isset($_POST['action']) && $_POST['action'] ===
         [
             'type' => 'CRITICAL_ALERT',
             'title' => '🚨 Outbreak Warning: ASF Active Buffer Zone',
-            'message' => 'African Swine Fever active buffer zone established within 7km. Enforce mandatory footbaths, disinfect vehicles, and prohibit swill feeding immediately.',
+            'message' => 'African Swine Fever active buffer zone established within 1km. Enforce mandatory footbaths, disinfect vehicles, and prohibit swill feeding immediately.',
             'priority' => 'Critical'
         ],
         [

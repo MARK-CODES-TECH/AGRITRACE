@@ -79,6 +79,21 @@ html, body {
     -webkit-backface-visibility: hidden;
 }
 
+/* Google Maps Smooth Hardware-Accelerated Rendering */
+.gm-style,
+.gm-style div,
+.gm-style canvas {
+    will-change: transform;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    transform: translateZ(0);
+}
+
+.gm-style img {
+    image-rendering: auto;
+    transition: opacity 0.2s ease-out;
+}
+
 .leaflet-tile {
     will-change: transform, opacity;
     image-rendering: auto;

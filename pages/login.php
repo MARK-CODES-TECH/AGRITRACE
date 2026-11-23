@@ -10,16 +10,20 @@ try {
 
 $login_error = '';
 $login_success = false;
-$info_message = isset($_GET['logged_out']) ? 'You have been logged out successfully.' : '';
+$info_message = isset($_GET['logged_out']) ? 'You have been logged out successfully.' : (isset($_GET['registered']) ? 'Account registered successfully! You can now log in.' : '');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-    $email = trim($_POST['email'] ?? '');
+    $identifier = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
     
     if (isset($pdo)) {
         try {
-            $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ? AND status = 'Active'");
-            $stmt->execute([$email]);
+            $cleanMobile = preg_replace('/\D/', '', $identifier);
+            $localMobile = str_starts_with($cleanMobile, '63') ? ('0' . substr($cleanMobile, 2)) : $cleanMobile;
+            $intlMobile  = str_starts_with($cleanMobile, '09') ? ('+63' . substr($cleanMobile, 1)) : ('+' . $cleanMobile);
+
+            $stmt = $pdo->prepare("SELECT * FROM users WHERE (email = ? OR mobile = ? OR mobile = ? OR mobile = ? OR mobile = ?) AND status = 'Active' LIMIT 1");
+            $stmt->execute([$identifier, $identifier, $cleanMobile, $localMobile, $intlMobile]);
             $user = $stmt->fetch();
             
             if ($user && password_verify($password, $user['password'])) {
@@ -39,7 +43,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 exit;
                 
             } else {
-                $login_error = 'Invalid email or password';
+                $login_error = 'Invalid email/mobile number or password';
             }
         } catch (PDOException $e) {
             $login_error = 'Database query failed';
@@ -514,10 +518,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
                 <form method="POST" id="loginForm" novalidate>
                     <div class="form-group">
-                        <label class="form-label" for="email">Email Address</label>
+                        <label class="form-label" for="email">Email or Mobile Number</label>
                         <div class="input-wrap">
-                            <i class="bi bi-envelope"></i>
-                            <input id="email" type="email" name="email" class="form-input" placeholder="juan@example.com" required autofocus>
+                            <i class="bi bi-person-badge"></i>
+                            <input id="email" type="text" name="email" class="form-input" placeholder="you@example.com or 09171234567" required autofocus>
                         </div>
                     </div>
 

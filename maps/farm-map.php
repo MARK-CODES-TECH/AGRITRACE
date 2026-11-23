@@ -28,11 +28,9 @@ $btnIcon = $isLoggedIn ? 'bi-speedometer2' : 'bi-house-door-fill';
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     
-    <!-- Leaflet & Clustering CSS -->
+    <!-- Leaflet Fallback Engine Styles -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css">
-    
+
     <!-- Modern Clean Light Theme Styles -->
     <link rel="stylesheet" href="../assets/map-styles.css?v=<?= filemtime(__DIR__ . '/../assets/map-styles.css') ?>">
 </head>
@@ -49,6 +47,27 @@ $btnIcon = $isLoggedIn ? 'bi-speedometer2' : 'bi-house-door-fill';
         </div>
         <h2>Loading District Map</h2>
         <p>Loading Camarines Sur 1st District farms and spatial records...</p>
+    </div>
+
+    <!-- Google Maps Activation Notice Banner (Shows only if Key needs API enablement or restriction adjustment) -->
+    <div id="gmapsNoticeBanner" style="display:none; position:fixed; top:85px; left:50%; transform:translateX(-50%); z-index:9999; background:rgba(15,23,42,0.96); backdrop-filter:blur(14px); border:1px solid rgba(245,158,11,0.7); border-radius:14px; padding:16px 22px; color:#fff; font-size:0.88rem; max-width:850px; width:92%; box-shadow:0 12px 35px rgba(0,0,0,0.5); align-items:flex-start; gap:14px;">
+        <i class="bi bi-exclamation-triangle-fill" style="color:#f59e0b; font-size:1.5rem; flex-shrink:0; margin-top:2px;"></i>
+        <div style="line-height:1.5; flex-grow:1;">
+            <div style="font-weight:700; font-size:0.95rem; margin-bottom:4px; color:#fbbf24;">Google Maps Key Restriction Notice (Project: <?= htmlspecialchars(GOOGLE_MAPS_PROJECT_ID) ?> &bull; <?= htmlspecialchars(GOOGLE_MAPS_ACCOUNT) ?>)</div>
+            <div>The Maps JavaScript API is enabled on your project, but the current API Key (<code>...<?= htmlspecialchars(substr(GOOGLE_MAPS_API_KEY, -6)) ?></code>) was restricted to Android/Firebase and returned <strong>ApiTargetBlockedMapError</strong>.</div>
+            <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:10px;">
+                <a href="https://console.cloud.google.com/google/maps-apis/credentials?project=<?= urlencode(GOOGLE_MAPS_PROJECT_ID) ?>" target="_blank" rel="noopener" style="background:#10b981; color:#0f172a; font-weight:700; padding:6px 14px; border-radius:8px; text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+                    <i class="bi bi-key-fill"></i> Open Credentials & Fix Key Restriction &rarr;
+                </a>
+                <a href="https://console.cloud.google.com/apis/library/maps-backend.googleapis.com?project=<?= urlencode(GOOGLE_MAPS_PROJECT_ID) ?>" target="_blank" rel="noopener" style="background:rgba(255,255,255,0.1); color:#fff; font-weight:600; padding:6px 14px; border-radius:8px; text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+                    <i class="bi bi-check-circle"></i> Verify API Enablement
+                </a>
+            </div>
+            <div style="margin-top:8px; font-size:0.78rem; color:#94a3b8;">
+                <strong>Quick fix:</strong> In Credentials, either click <em>+ CREATE CREDENTIALS &rarr; API key</em> for an unrestricted key, or click the existing key and set <em>Application restrictions</em> to <strong>None</strong> and allow <strong>Maps JavaScript API</strong>.
+            </div>
+        </div>
+        <button type="button" onclick="document.getElementById('gmapsNoticeBanner').style.display='none'" style="background:none; border:none; color:#94a3b8; cursor:pointer; font-size:1.2rem; padding:2px;"><i class="bi bi-x-lg"></i></button>
     </div>
 
     <!-- Top Floating Header Bar (Glass Island) -->
@@ -189,7 +208,7 @@ $btnIcon = $isLoggedIn ? 'bi-speedometer2' : 'bi-house-door-fill';
                 <label class="dock-toggle">
                     <input id="showBufferZones" type="checkbox" checked>
                     <span class="toggle-slider"></span>
-                    <span class="toggle-text"><i class="bi bi-shield-shaded" style="color:#ef4444;"></i> BAI Buffer Zones (1km/7km)</span>
+                    <span class="toggle-text"><i class="bi bi-shield-shaded" style="color:#ef4444;"></i> BAI Buffer Zones (500m/1km)</span>
                 </label>
             </div>
 
@@ -210,8 +229,8 @@ $btnIcon = $isLoggedIn ? 'bi-speedometer2' : 'bi-house-door-fill';
         <div class="legend-chip"><span class="dot-lg dot-approved"></span> Approved Farm</div>
         <div class="legend-chip"><span class="dot-lg dot-pending"></span> Pending Farm</div>
         <div class="legend-chip"><span class="icon-lg text-red-500">▲</span> Incident Alert</div>
-        <div class="legend-chip"><span class="ring-sm ring-quarantine"></span> 1km Quarantine Ring</div>
-        <div class="legend-chip"><span class="ring-sm ring-surveillance"></span> 7km Surveillance Zone</div>
+        <div class="legend-chip"><span class="ring-sm ring-quarantine"></span> 500m Quarantine Ring</div>
+        <div class="legend-chip"><span class="ring-sm ring-surveillance"></span> 1km Surveillance Zone</div>
         <div class="legend-chip"><span class="dash-lg"></span> 1st District Scope</div>
     </div>
 
@@ -229,12 +248,11 @@ $btnIcon = $isLoggedIn ? 'bi-speedometer2' : 'bi-house-door-fill';
         <div id="farmDetails" class="inspector-content"></div>
     </aside>
 
-    <!-- Leaflet & Clustering Dependencies -->
+    <!-- Map Engines & Clustering Script -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
-    
-    <!-- Clean Light GIS Engine Script -->
+    <script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>
     <script src="../assets/js/farm-map-enhanced.js?v=<?= filemtime(__DIR__ . '/../assets/js/farm-map-enhanced.js') ?>"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=<?= htmlspecialchars(GOOGLE_MAPS_API_KEY) ?>&libraries=geometry,places&callback=initGisMap" async defer></script>
 
     <script>
         // Full Map View / Native Fullscreen Engine

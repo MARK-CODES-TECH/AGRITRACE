@@ -2,7 +2,10 @@
 require_once __DIR__ . '/../db_connect.php';
 
 // Composer autoload for PHPMailer + Twilio
-require_once __DIR__ . '/../vendor/autoload.php';
+$vendorAutoload = __DIR__ . '/../vendor/autoload.php';
+if (file_exists($vendorAutoload)) {
+    require_once $vendorAutoload;
+}
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;

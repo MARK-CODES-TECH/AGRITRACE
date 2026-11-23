@@ -21,7 +21,30 @@ try {
 // Add any other global configurations or utility functions here
 if (!defined('GOOGLE_MAPS_API_KEY')) {
     // Set your Google Maps API Key here or through environment variable GOOGLE_MAPS_API_KEY
-    define('GOOGLE_MAPS_API_KEY', getenv('GOOGLE_MAPS_API_KEY') ?: '');
+    define('GOOGLE_MAPS_API_KEY', getenv('GOOGLE_MAPS_API_KEY') ?: 'AIzaSyD4wib27YHw9ISdYdXP_p5k5cA0bhWkGqM');
+}
+if (!defined('GOOGLE_MAPS_PROJECT_ID')) {
+    define('GOOGLE_MAPS_PROJECT_ID', getenv('GOOGLE_MAPS_PROJECT_ID') ?: 'dfms-19927');
+}
+if (!defined('GOOGLE_MAPS_ACCOUNT')) {
+    define('GOOGLE_MAPS_ACCOUNT', getenv('GOOGLE_MAPS_ACCOUNT') ?: 'reaganalmonte02@gmail.com');
+}
+
+// ── FIREBASE AUTHENTICATION CONFIGURATION (Project: dfms-19927) ─────────────
+if (!defined('FIREBASE_API_KEY')) {
+    define('FIREBASE_API_KEY', getenv('FIREBASE_API_KEY') ?: 'AIzaSyCkJ08Mb6c9SFDdkb_M6I_X7ZNYYf0l-3o');
+}
+if (!defined('FIREBASE_AUTH_DOMAIN')) {
+    define('FIREBASE_AUTH_DOMAIN', getenv('FIREBASE_AUTH_DOMAIN') ?: 'dfms-19927.firebaseapp.com');
+}
+if (!defined('FIREBASE_PROJECT_ID')) {
+    define('FIREBASE_PROJECT_ID', getenv('FIREBASE_PROJECT_ID') ?: 'dfms-19927');
+}
+if (!defined('FIREBASE_STORAGE_BUCKET')) {
+    define('FIREBASE_STORAGE_BUCKET', getenv('FIREBASE_STORAGE_BUCKET') ?: 'dfms-19927.firebasestorage.app');
+}
+if (!defined('FIREBASE_MESSAGING_SENDER_ID')) {
+    define('FIREBASE_MESSAGING_SENDER_ID', getenv('FIREBASE_MESSAGING_SENDER_ID') ?: '430985218377');
 }
 
 // ── BILINGUAL LANGUAGE SUPPORT (English / Tagalog) ──────────────────────────
