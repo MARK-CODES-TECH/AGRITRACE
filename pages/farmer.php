@@ -4512,11 +4512,18 @@ body:not(.sidebar-autohide) .btn-drawer-pin {
       <div class="modal-body">
         <div class="form-group"><label class="form-label">Tag ID *</label><input type="text" class="form-input" id="lvEditTag" name="tagId" required></div>
         <div class="form-group"><label class="form-label">Type *</label>
-          <select class="form-select" id="lvEditType" name="type" required>
+          <select class="form-select" id="lvEditType" name="type" required onchange="updateBreedDropdown('edit')">
             <?php foreach($allAnimalTypes as $at): ?><option><?= $at ?></option><?php endforeach; ?>
           </select>
         </div>
-        <div class="form-group"><label class="form-label">Breed</label><input type="text" class="form-input" id="lvEditBreed" name="breed" placeholder="e.g. Landrace, Holstein, Native"></div>
+        <div class="form-group">
+          <label class="form-label">Breed / Production Type</label>
+          <select class="form-select" id="lvEditBreedSelect" onchange="onBreedSelectChange('edit')">
+            <option value="">Select type first...</option>
+          </select>
+          <input type="text" class="form-input" id="lvEditBreedCustom" placeholder="Specify custom breed..." style="display:none;margin-top:6px;" oninput="syncBreedFinal('edit')">
+          <input type="hidden" name="breed" id="lvEditBreed">
+        </div>
         <div class="form-group"><label class="form-label">Quantity *</label><input type="number" class="form-input" id="lvEditQty" name="qty" min="1" required></div>
         <div class="form-group"><label class="form-label">Age (years)</label><input type="number" class="form-input" id="lvEditAge" name="age" min="0" step="0.1"></div>
         <div class="form-group"><label class="form-label">Weight (kg)</label><input type="number" class="form-input" id="lvEditWeight" name="weight" step="0.1"></div>
@@ -4558,7 +4565,7 @@ body:not(.sidebar-autohide) .btn-drawer-pin {
           </select>
         </div>
         <div class="form-group"><label class="form-label">Type *</label>
-          <select class="form-select" id="lvAddType" name="type" required onchange="autoFillTagId()">
+          <select class="form-select" id="lvAddType" name="type" required onchange="autoFillTagId(); updateBreedDropdown('add');">
             <option value="">Select...</option>
             <?php foreach($allAnimalTypes as $at): ?><option><?= $at ?></option><?php endforeach; ?>
           </select>
@@ -4571,7 +4578,14 @@ body:not(.sidebar-autohide) .btn-drawer-pin {
             </button>
           </div>
         </div>
-        <div class="form-group"><label class="form-label">Breed</label><input type="text" class="form-input" name="breed" placeholder="e.g. Landrace, Holstein, Native"></div>
+        <div class="form-group">
+          <label class="form-label">Breed / Production Type</label>
+          <select class="form-select" id="lvAddBreedSelect" onchange="onBreedSelectChange('add')">
+            <option value="">Select animal type first...</option>
+          </select>
+          <input type="text" class="form-input" id="lvAddBreedCustom" placeholder="Specify custom breed..." style="display:none;margin-top:6px;" oninput="syncBreedFinal('add')">
+          <input type="hidden" name="breed" id="lvAddBreed">
+        </div>
         <div class="form-group"><label class="form-label">Quantity *</label><input type="number" class="form-input" name="qty" value="1" min="1" required></div>
         <div class="form-group"><label class="form-label">Age (years)</label><input type="number" class="form-input" name="age" min="0" step="0.1" placeholder="e.g. 1.5"></div>
         <div class="form-group"><label class="form-label">Weight (kg)</label><input type="number" class="form-input" name="weight" step="0.1" placeholder="e.g. 75.0"></div>
@@ -4840,8 +4854,10 @@ function addAnimalRow(type){
         <input type="text" name="lv_tag_${key}" value="${tagDefault}" style="width:100%;">
       </div>
       <div class="field-full">
-        <label style="font-size:.72rem;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:.3rem;">Breed (optional)</label>
-        <input type="text" name="lv_breed_${key}" placeholder="e.g. Holstein, Landrace…" style="width:100%;">
+        <label style="font-size:.72rem;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:.3rem;">Breed / Production Type</label>
+        <select name="lv_breed_${key}" class="form-select" style="width:100%;">
+          ${getBreedOptionsHtml(type)}
+        </select>
       </div>
     </div>`;
   document.getElementById('lvDynamicList').appendChild(row);
@@ -4854,6 +4870,156 @@ function removeAnimalRow(btn,type){
   const row=btn.closest('.lv-dynamic-row');
   row.style.animation='none';row.style.opacity='0';row.style.transform='translateY(-6px)';
   setTimeout(()=>{row.remove();addedAnimalTypes.delete(type);},200);
+}
+
+// ── PHILIPPINE LIVESTOCK BREED MAPPINGS ──────────────────────────────────────
+const LIVESTOCK_BREEDS = {
+  'Poultry': [
+    'Broiler (Meat - Cobb 500 / Ross 308)',
+    'Layer (Table Eggs - Lohmann / Hy-Line Brown)',
+    'Philippine Native Chicken (Manok Tagalog / Darag / Banaba)',
+    'Camarines Native Chicken (Bicol Native)',
+    'Free-Range Colored Broiler (Sasso / Kabir)',
+    'Philippine Mallard Duck (Itik / Pateros - Balut & Penoy)',
+    'Muscovy Duck (Pato / Bibe - Meat)',
+    'Pekin Duck (Commercial Meat)',
+    'Khaki Campbell Duck (Egg Producer)',
+    'Japanese / Coturnix Quail (Pugo - Kwek-Kwek & Table Eggs)',
+    'Turkey (Pabo)',
+    'Geese (Gansa)',
+    'Pigeon (Kalapati / Squab)'
+  ],
+  'Swine': [
+    'Landrace (Maternal Line - Large Drooping Ears)',
+    'Large White / Yorkshire (Prolific / Erect Ears)',
+    'Duroc (Terminal Sire - Red / High Marbling)',
+    'Pietrain (Terminal Sire - Spotted / Ultra-Lean)',
+    'Hampshire (Black with White Belt)',
+    'Commercial Hybrid (PIC / Topigs Norsvin / Hypor)',
+    'Philippine Native Pig (Baboy Damo / Tagalog / Markaduke / Q-Black)',
+    'Upgraded F1 Cross (Krusador - Native x Exotic)',
+    'Lechonero Native Pig (Pang-Lechon)'
+  ],
+  'Cattle': [
+    'American Brahman (Heat & Tick Resistant Beef)',
+    'Philippine Native Cattle (Batangas / Ilocos)',
+    'Simbrah Cross (Simmental x Brahman)',
+    'Brangus Cross (Brahman x Angus)',
+    'Tropical Dairy Cattle (Holstein-Friesian x Sahiwal)',
+    'Jersey Cross'
+  ],
+  'Carabao': [
+    'Philippine Carabao (Native Swamp Buffalo / Kalabaw)',
+    'Bulgarian Murrah Buffalo (PCC High-Yield Dairy Cross)',
+    'Italian Mediterranean Buffalo',
+    'Upgraded Cross (50% Murrah x 50% Native)'
+  ],
+  'Goat': [
+    'Philippine Native Goat (Kambing)',
+    'Anglo-Nubian (Dual Purpose Dairy & Meat)',
+    'Boer (Heavy Meat Terminal Buck)',
+    'Saanen (High Milk Dairy Goat)',
+    'Alpine / Toggenburg',
+    'Upgraded Cross'
+  ],
+  'Sheep': [
+    'Philippine Native Sheep',
+    'Dorper (Meat Hair Sheep)',
+    'St. Croix / Katahdin',
+    'Barbados Blackbelly'
+  ],
+  'Horse': [
+    'Philippine Native Pony',
+    'Quarter Horse Cross',
+    'Thoroughbred Cross'
+  ],
+  'Rabbit': [
+    'New Zealand White (Meat)',
+    'Californian',
+    'Flemish Giant',
+    'Philippine Local Mixed'
+  ]
+};
+
+function getBreedOptionsHtml(type, selectedBreed = ''){
+  const breeds = LIVESTOCK_BREEDS[type] || [];
+  let html = '<option value="">Select breed / type...</option>';
+  let isCustom = selectedBreed && !breeds.includes(selectedBreed) && selectedBreed !== '__custom__';
+
+  breeds.forEach(b => {
+    const sel = (b === selectedBreed) ? 'selected' : '';
+    html += `<option value="${b}" ${sel}>${b}</option>`;
+  });
+  const otherSel = isCustom ? 'selected' : '';
+  html += `<option value="__custom__" ${otherSel}>Other / Custom Breed...</option>`;
+  return html;
+}
+
+function updateBreedDropdown(mode, currentBreed = ''){
+  const isAdd = mode === 'add';
+  const typeEl = document.getElementById(isAdd ? 'lvAddType' : 'lvEditType');
+  const selEl  = document.getElementById(isAdd ? 'lvAddBreedSelect' : 'lvEditBreedSelect');
+  const custEl = document.getElementById(isAdd ? 'lvAddBreedCustom' : 'lvEditBreedCustom');
+  const hidEl  = document.getElementById(isAdd ? 'lvAddBreed' : 'lvEditBreed');
+  
+  if(!selEl || !hidEl) return;
+  const type = typeEl ? typeEl.value : '';
+  if(!type){
+    selEl.innerHTML = '<option value="">Select animal type first...</option>';
+    if(custEl) custEl.style.display = 'none';
+    hidEl.value = '';
+    return;
+  }
+
+  const breeds = LIVESTOCK_BREEDS[type] || [];
+  selEl.innerHTML = getBreedOptionsHtml(type, currentBreed);
+
+  const isCustom = currentBreed && !breeds.includes(currentBreed) && currentBreed !== '__custom__';
+  if(isCustom){
+    selEl.value = '__custom__';
+    if(custEl){
+      custEl.style.display = 'block';
+      custEl.value = currentBreed;
+    }
+    hidEl.value = currentBreed;
+  } else if(currentBreed && breeds.includes(currentBreed)){
+    selEl.value = currentBreed;
+    if(custEl) custEl.style.display = 'none';
+    hidEl.value = currentBreed;
+  } else {
+    if(custEl) custEl.style.display = 'none';
+    hidEl.value = selEl.value && selEl.value !== '__custom__' ? selEl.value : '';
+  }
+}
+
+function onBreedSelectChange(mode){
+  const isAdd = mode === 'add';
+  const selEl  = document.getElementById(isAdd ? 'lvAddBreedSelect' : 'lvEditBreedSelect');
+  const custEl = document.getElementById(isAdd ? 'lvAddBreedCustom' : 'lvEditBreedCustom');
+  const hidEl  = document.getElementById(isAdd ? 'lvAddBreed' : 'lvEditBreed');
+
+  if(!selEl || !hidEl) return;
+  if(selEl.value === '__custom__'){
+    if(custEl){
+      custEl.style.display = 'block';
+      custEl.focus();
+      hidEl.value = custEl.value.trim();
+    }
+  } else {
+    if(custEl){
+      custEl.style.display = 'none';
+    }
+    hidEl.value = selEl.value;
+  }
+}
+
+function syncBreedFinal(mode){
+  const isAdd = mode === 'add';
+  const custEl = document.getElementById(isAdd ? 'lvAddBreedCustom' : 'lvEditBreedCustom');
+  const hidEl  = document.getElementById(isAdd ? 'lvAddBreed' : 'lvEditBreed');
+  if(custEl && hidEl){
+    hidEl.value = custEl.value.trim();
+  }
 }
 
 // ── AUTO-FILL & GENERATE TAG ID ──────────────────────────────────────────────
@@ -5099,7 +5265,8 @@ function exportLivestockCSV(){
 function openEditLv(id,tagId,type,breed,qty,age,weight,health,vacc,notes){
   document.getElementById('lvEditTitle').innerHTML='<i class="bi bi-pencil-square"></i> '+tagId;
   document.getElementById('lvEditId').value=id;document.getElementById('lvEditTag').value=tagId;
-  document.getElementById('lvEditType').value=type;document.getElementById('lvEditBreed').value=breed||'';
+  document.getElementById('lvEditType').value=type;
+  updateBreedDropdown('edit', breed || '');
   document.getElementById('lvEditQty').value=qty;document.getElementById('lvEditAge').value=age||'';
   document.getElementById('lvEditWeight').value=weight||'';document.getElementById('lvEditHealth').value=health;
   document.getElementById('lvEditVacc').value=vacc;
@@ -5107,7 +5274,13 @@ function openEditLv(id,tagId,type,breed,qty,age,weight,health,vacc,notes){
   if(noteEl) noteEl.value = notes || '';
   openModal('lvEditModal');
 }
-function openAddLvForFarm(farmId){document.getElementById('lvAddForm').reset();document.getElementById('lvAddFarm').value=farmId;document.getElementById('lvAddTagId').value='';openModal('lvAddModal');}
+function openAddLvForFarm(farmId){
+  document.getElementById('lvAddForm').reset();
+  document.getElementById('lvAddFarm').value=farmId;
+  document.getElementById('lvAddTagId').value='';
+  updateBreedDropdown('add', '');
+  openModal('lvAddModal');
+}
 function deleteLv(id,tagId){
   if(!confirm(`Delete livestock ${tagId}? This cannot be undone.`))return;
   const fd=new FormData();fd.append('action','delete_livestock');fd.append('livestock_id',id);
