@@ -919,36 +919,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="mobile">Mobile Number <span style="font-size:0.75rem; font-weight:700; color:#10b981;">(SMS OTP Verification)</span></label>
-                            <div class="input-wrap">
-                                <i class="bi bi-phone"></i>
-                                <input id="mobile" type="tel" name="mobile" class="form-input" placeholder="09XX XXX XXXX or +63 9XX XXX XXXX" value="<?= htmlspecialchars($_POST['mobile'] ?? '') ?>" required>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                <label class="form-label" for="mobile" style="margin-bottom:0;">Mobile Number</label>
+                                <span id="phoneVerifiedBadge" style="display:none; color:#059669; font-weight:700; font-size:0.8rem; background:#ecfdf5; border:1px solid #a7f3d0; padding:2px 8px; border-radius:6px;">
+                                    <i class="bi bi-shield-check"></i> Verified
+                                </span>
                             </div>
-                            
-                            <!-- Instant SMS OTP Verification Block -->
-                            <div style="margin-top:10px;">
-                                <div style="display:flex; align-items:center; gap:8px;">
-                                    <button type="button" id="btnSendSmsOtp" style="background:#123f33; color:#fff; border:none; padding:8px 16px; border-radius:10px; font-size:0.84rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:7px; transition: all 0.2s ease;">
-                                        <i class="bi bi-chat-dots-fill text-success"></i> Send Verification Code
+                            <div class="input-wrap" style="position:relative; display:flex; align-items:center;">
+                                <i class="bi bi-phone" style="position:absolute; left:14px; color:#6b7280;"></i>
+                                <input id="mobile" type="tel" name="mobile" class="form-input" placeholder="09XX XXX XXXX" value="<?= htmlspecialchars($_POST['mobile'] ?? '') ?>" required style="padding-right:120px;">
+                                <button type="button" id="btnSendSmsOtp" style="position:absolute; right:6px; top:50%; transform:translateY(-50%); background:#123f33; color:#fff; border:none; padding:7px 14px; border-radius:8px; font-size:0.8rem; font-weight:700; cursor:pointer; transition:all 0.2s ease;">
+                                    Send Code
+                                </button>
+                            </div>
+
+                            <!-- Professional Inline OTP Row -->
+                            <div id="smsOtpGroup" style="display:none; margin-top:10px;">
+                                <div style="display:flex; gap:8px; align-items:center;">
+                                    <input id="smsOtpCode" type="text" class="form-input" placeholder="6-digit code" maxlength="6" inputmode="numeric" autocomplete="one-time-code" style="max-width:160px; font-size:1rem; font-weight:700; letter-spacing:4px; text-align:center; padding:9px 12px;">
+                                    <button type="button" id="btnConfirmSmsOtp" style="background:#10b981; color:#fff; border:none; padding:9px 18px; border-radius:10px; font-size:0.84rem; font-weight:700; cursor:pointer;">
+                                        Verify Code
                                     </button>
                                 </div>
-
-                                <div id="otpLiveAlert" style="display:none; margin-top:10px;"></div>
-
-                                <div id="smsOtpGroup" style="display:none; margin-top:10px; gap:8px; align-items:center;">
-                                    <input id="smsOtpCode" type="text" class="form-input" placeholder="Enter 6-digit code" maxlength="6" style="max-width:180px; padding:8px 12px; font-size:0.95rem; font-weight:700; letter-spacing:3px; text-align:center;">
-                                    <button type="button" id="btnConfirmSmsOtp" style="background:#10b981; color:#fff; border:none; padding:8px 18px; border-radius:10px; font-size:0.84rem; font-weight:700; cursor:pointer;">
-                                        Confirm Code
-                                    </button>
+                                <div style="font-size:0.78rem; color:#64748b; margin-top:6px;">
+                                    Enter the 6-digit verification code sent to your phone.
                                 </div>
-
-                                <div id="phoneVerifiedBadge" style="display:none; color:#059669; font-weight:700; font-size:0.88rem; margin-top:8px; background:#f0fdf4; border:1px solid #bbf7d0; padding:8px 12px; border-radius:8px;">
-                                    <i class="bi bi-check-circle-fill"></i> Mobile number verified successfully!
-                                </div>
-
-                                <div id="smsErrorNotice" style="display:none; color:#dc2626; font-size:0.82rem; margin-top:8px; background:#fef2f2; border:1px solid #fecaca; padding:8px 12px; border-radius:8px;"></div>
-                                <input type="hidden" name="phone_verified" id="phone_verified" value="0">
                             </div>
+
+                            <div id="smsErrorNotice" style="display:none; color:#dc2626; font-size:0.8rem; margin-top:6px; font-weight:500;"></div>
+                            <input type="hidden" name="phone_verified" id="phone_verified" value="0">
+                            <div id="recaptcha-container"></div>
                         </div>
 
                         <div class="form-group">
@@ -1186,24 +1186,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     </script>
 
-    <!-- Native SMS OTP Verification Script -->
+    <!-- Firebase SDKs for Phone SMS Authentication -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
     <script>
-        const btnSendSmsOtp     = document.getElementById('btnSendSmsOtp');
-        const btnConfirmSmsOtp  = document.getElementById('btnConfirmSmsOtp');
-        const smsOtpGroup       = document.getElementById('smsOtpGroup');
-        const smsOtpCode        = document.getElementById('smsOtpCode');
-        const phoneVerifiedBadge= document.getElementById('phoneVerifiedBadge');
-        const smsErrorNotice    = document.getElementById('smsErrorNotice');
-        const phoneVerifiedInput= document.getElementById('phone_verified');
-        const mobileInput       = document.getElementById('mobile');
-        const otpLiveAlert      = document.getElementById('otpLiveAlert');
+        const firebaseConfig = {
+            apiKey: "<?= defined('FIREBASE_API_KEY') ? FIREBASE_API_KEY : 'AIzaSyCkJ08Mb6c9SFDdkb_M6I_X7ZNYYf0l-3o' ?>",
+            authDomain: "<?= defined('FIREBASE_AUTH_DOMAIN') ? FIREBASE_AUTH_DOMAIN : 'dfms-19927.firebaseapp.com' ?>",
+            projectId: "<?= defined('FIREBASE_PROJECT_ID') ? FIREBASE_PROJECT_ID : 'dfms-19927' ?>",
+            storageBucket: "<?= defined('FIREBASE_STORAGE_BUCKET') ? FIREBASE_STORAGE_BUCKET : 'dfms-19927.firebasestorage.app' ?>",
+            messagingSenderId: "<?= defined('FIREBASE_MESSAGING_SENDER_ID') ? FIREBASE_MESSAGING_SENDER_ID : '430985218377' ?>"
+        };
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const auth = firebase.auth();
+
+        let confirmationResult = null;
+        let recaptchaVerifier = null;
+
+        function getRecaptchaVerifier() {
+            if (!recaptchaVerifier) {
+                recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+                    'size': 'invisible',
+                    'callback': function(response) {
+                        // reCAPTCHA solved
+                    },
+                    'expired-callback': function() {
+                        if (typeof grecaptcha !== 'undefined') {
+                            grecaptcha.reset();
+                        }
+                    }
+                });
+            }
+            return recaptchaVerifier;
+        }
+
+        const btnSendSmsOtp      = document.getElementById('btnSendSmsOtp');
+        const btnConfirmSmsOtp   = document.getElementById('btnConfirmSmsOtp');
+        const smsOtpGroup        = document.getElementById('smsOtpGroup');
+        const smsOtpCode         = document.getElementById('smsOtpCode');
+        const phoneVerifiedBadge = document.getElementById('phoneVerifiedBadge');
+        const smsErrorNotice     = document.getElementById('smsErrorNotice');
+        const phoneVerifiedInput = document.getElementById('phone_verified');
+        const mobileInput        = document.getElementById('mobile');
+        const otpLiveAlert       = document.getElementById('otpLiveAlert');
 
         if (btnSendSmsOtp) {
             btnSendSmsOtp.addEventListener('click', function() {
                 if (smsErrorNotice) smsErrorNotice.style.display = 'none';
                 if (otpLiveAlert) otpLiveAlert.style.display = 'none';
 
-                const phone = mobileInput.value.trim();
+                let phone = mobileInput.value.trim().replace(/[\s\-()]/g, '');
                 if (!phone) {
                     if (smsErrorNotice) {
                         smsErrorNotice.textContent = 'Please enter your mobile number first.';
@@ -1213,132 +1247,121 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     return;
                 }
 
+                // Format to international E.164 (+639XXXXXXXXX)
+                if (phone.startsWith('09') && phone.length === 11) {
+                    phone = '+63' + phone.substring(1);
+                } else if (phone.startsWith('9') && phone.length === 10) {
+                    phone = '+63' + phone;
+                } else if (phone.startsWith('63') && phone.length === 12) {
+                    phone = '+' + phone;
+                } else if (!phone.startsWith('+')) {
+                    phone = '+' + phone;
+                }
+
                 btnSendSmsOtp.disabled = true;
-                btnSendSmsOtp.innerHTML = '<i class="bi bi-hourglass-split"></i> Sending Code...';
+                btnSendSmsOtp.innerHTML = '<i class="bi bi-hourglass-split"></i> Sending...';
 
-                const formData = new FormData();
-                formData.append('mobile', phone);
+                try {
+                    const appVerifier = getRecaptchaVerifier();
+                    auth.signInWithPhoneNumber(phone, appVerifier)
+                        .then((result) => {
+                            confirmationResult = result;
+                            btnSendSmsOtp.disabled = false;
+                            btnSendSmsOtp.innerHTML = 'Resend Code';
 
-                fetch('../api/send_otp.php', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(res => res.json())
-                .then(data => {
+                            if (smsOtpGroup) smsOtpGroup.style.display = 'block';
+                            if (smsOtpCode) {
+                                smsOtpCode.value = '';
+                                smsOtpCode.focus();
+                            }
+                        })
+                        .catch((error) => {
+                            console.error('Firebase Phone Auth Error:', error);
+                            btnSendSmsOtp.disabled = false;
+                            btnSendSmsOtp.innerHTML = 'Send Code';
+
+                            let msg = error.message;
+                            if (error.code === 'auth/operation-not-allowed') {
+                                msg = 'Phone authentication is disabled in Firebase. Please enable Phone provider in Firebase Console.';
+                            } else if (error.code === 'auth/invalid-phone-number') {
+                                msg = 'Invalid phone number format. Please enter a valid 11-digit mobile number.';
+                            } else if (error.code === 'auth/quota-exceeded') {
+                                msg = 'Daily SMS quota reached. Please try again later.';
+                            } else if (error.code === 'auth/too-many-requests') {
+                                msg = 'Too many attempts. Please wait a moment before trying again.';
+                            }
+
+                            if (smsErrorNotice) {
+                                smsErrorNotice.textContent = msg;
+                                smsErrorNotice.style.display = 'block';
+                            }
+
+                            if (recaptchaVerifier && typeof grecaptcha !== 'undefined') {
+                                grecaptcha.reset();
+                            }
+                        });
+                } catch (err) {
+                    console.error('Firebase initialization error:', err);
                     btnSendSmsOtp.disabled = false;
-                    btnSendSmsOtp.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Resend Code';
-
-                    if (!data.success) {
-                        if (smsErrorNotice) {
-                            smsErrorNotice.textContent = data.message;
-                            smsErrorNotice.style.display = 'block';
-                        }
-                        return;
-                    }
-
-                    // Show OTP input field
-                    if (smsOtpGroup) {
-                        smsOtpGroup.style.display = 'flex';
-                    }
-                    if (smsOtpCode) {
-                        smsOtpCode.value = '';
-                        smsOtpCode.focus();
-                    }
-
-                    // Display friendly on-screen verification alert with the OTP code
-                    if (otpLiveAlert) {
-                        otpLiveAlert.innerHTML = `
-                            <div style="background:#ecfdf5; border:1px solid #6ee7b7; color:#065f46; border-radius:12px; padding:12px; font-size:0.88rem; box-shadow:0 4px 12px rgba(16,185,129,0.1);">
-                                <div style="display:flex; align-items:center; gap:8px;">
-                                    <i class="bi bi-chat-left-dots-fill text-success" style="font-size:1.2rem;"></i>
-                                    <div>
-                                        <strong>SMS Verification Code Dispatched!</strong>
-                                        <div style="font-size:0.8rem; color:#047857;">Code sent to <strong>${data.mobile}</strong>. Enter it below to verify:</div>
-                                    </div>
-                                </div>
-                                <div style="margin-top:10px; padding:8px 14px; background:#ffffff; border-radius:8px; border:1px dashed #10b981; display:flex; justify-content:space-between; align-items:center;">
-                                    <span style="font-size:0.85rem; font-weight:600;">VERIFICATION OTP: <strong style="color:#059669; font-size:1.25rem; letter-spacing:4px; font-family:monospace;">${data.otp_code}</strong></span>
-                                    <span style="font-size:0.75rem; color:#6b7280;">(Valid 10 mins)</span>
-                                </div>
-                            </div>
-                        `;
-                        otpLiveAlert.style.display = 'block';
-                    }
-                })
-                .catch(err => {
-                    btnSendSmsOtp.disabled = false;
-                    btnSendSmsOtp.innerHTML = '<i class="bi bi-chat-dots-fill text-success"></i> Send Verification Code';
+                    btnSendSmsOtp.innerHTML = 'Send Code';
                     if (smsErrorNotice) {
-                        smsErrorNotice.textContent = 'Network error while requesting verification code. Please try again.';
+                        smsErrorNotice.textContent = err.message || 'Error initializing verification service.';
                         smsErrorNotice.style.display = 'block';
                     }
-                });
+                }
             });
         }
 
         if (btnConfirmSmsOtp) {
             btnConfirmSmsOtp.addEventListener('click', function() {
-                const code  = smsOtpCode ? smsOtpCode.value.trim() : '';
-                const phone = mobileInput ? mobileInput.value.trim() : '';
-
+                const code = smsOtpCode ? smsOtpCode.value.trim() : '';
                 if (!code || code.length < 6) {
                     if (smsErrorNotice) {
-                        smsErrorNotice.textContent = 'Please enter the 6-digit verification code.';
+                        smsErrorNotice.textContent = 'Please enter the 6-digit verification code sent to your phone.';
                         smsErrorNotice.style.display = 'block';
                     }
                     if (smsOtpCode) smsOtpCode.focus();
                     return;
                 }
 
+                if (!confirmationResult) {
+                    if (smsErrorNotice) {
+                        smsErrorNotice.textContent = 'Verification session expired. Please click "Resend Code".';
+                        smsErrorNotice.style.display = 'block';
+                    }
+                    return;
+                }
+
                 btnConfirmSmsOtp.disabled = true;
                 btnConfirmSmsOtp.textContent = 'Verifying...';
 
-                const formData = new FormData();
-                formData.append('mobile', phone);
-                formData.append('otp_code', code);
+                confirmationResult.confirm(code)
+                    .then((result) => {
+                        // Successfully verified
+                        phoneVerifiedInput.value = '1';
+                        if (smsOtpGroup) smsOtpGroup.style.display = 'none';
+                        if (btnSendSmsOtp) btnSendSmsOtp.style.display = 'none';
+                        if (smsErrorNotice) smsErrorNotice.style.display = 'none';
 
-                fetch('../api/verify_otp.php', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(res => res.json())
-                .then(data => {
-                    btnConfirmSmsOtp.disabled = false;
-                    btnConfirmSmsOtp.textContent = 'Confirm Code';
+                        if (phoneVerifiedBadge) {
+                            phoneVerifiedBadge.style.display = 'inline-block';
+                        }
 
-                    if (!data.success) {
+                        if (mobileInput) {
+                            mobileInput.readOnly = true;
+                            mobileInput.style.backgroundColor = '#f0fdf4';
+                            mobileInput.style.borderColor = '#86efac';
+                        }
+                    })
+                    .catch((error) => {
+                        console.error('Firebase OTP Confirmation Error:', error);
+                        btnConfirmSmsOtp.disabled = false;
+                        btnConfirmSmsOtp.textContent = 'Verify Code';
                         if (smsErrorNotice) {
-                            smsErrorNotice.textContent = data.message;
+                            smsErrorNotice.textContent = 'Invalid verification code. Please check your SMS and try again.';
                             smsErrorNotice.style.display = 'block';
                         }
-                        return;
-                    }
-
-                    // Success! Mobile is verified
-                    phoneVerifiedInput.value = '1';
-                    if (smsOtpGroup) smsOtpGroup.style.display = 'none';
-                    if (btnSendSmsOtp) btnSendSmsOtp.style.display = 'none';
-                    if (otpLiveAlert) otpLiveAlert.style.display = 'none';
-                    if (smsErrorNotice) smsErrorNotice.style.display = 'none';
-
-                    if (phoneVerifiedBadge) {
-                        phoneVerifiedBadge.style.display = 'block';
-                    }
-
-                    if (mobileInput) {
-                        mobileInput.readOnly = true;
-                        mobileInput.style.backgroundColor = '#f0fdf4';
-                        mobileInput.style.borderColor = '#86efac';
-                    }
-                })
-                .catch(err => {
-                    btnConfirmSmsOtp.disabled = false;
-                    btnConfirmSmsOtp.textContent = 'Confirm Code';
-                    if (smsErrorNotice) {
-                        smsErrorNotice.textContent = 'Error verifying code. Please try again.';
-                        smsErrorNotice.style.display = 'block';
-                    }
-                });
+                    });
             });
         }
     </script>

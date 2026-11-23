@@ -1,0 +1,168 @@
+{
+    "timestamp": "2026-11-23T09:35:10+01:00",
+    "summary": {
+        "total": 26,
+        "passed": 26,
+        "warning": 0,
+        "failed": 0,
+        "rate": "100%"
+    },
+    "tests": [
+        {
+            "category": "Auth & Security",
+            "name": "Guest block: farmer.php",
+            "status": "PASS",
+            "details": "Redirected to login.php (302)"
+        },
+        {
+            "category": "Auth & Security",
+            "name": "Guest block: agriDA.php",
+            "status": "PASS",
+            "details": "Redirected to login.php (302)"
+        },
+        {
+            "category": "Auth & Security",
+            "name": "Guest block: admin.php",
+            "status": "PASS",
+            "details": "Redirected to login.php (302)"
+        },
+        {
+            "category": "Auth & Security",
+            "name": "Invalid Password Rejection",
+            "status": "PASS",
+            "details": "Rejected invalid credentials"
+        },
+        {
+            "category": "Auth & Security",
+            "name": "Farmer Login (Email)",
+            "status": "PASS",
+            "details": "Logged in, redirected to dashboard.php"
+        },
+        {
+            "category": "Auth & Security",
+            "name": "Farmer Login (Mobile)",
+            "status": "PASS",
+            "details": "Logged in via 09191112233"
+        },
+        {
+            "category": "Auth & Security",
+            "name": "Official Login",
+            "status": "PASS",
+            "details": "Logged in, redirected to dashboard.php"
+        },
+        {
+            "category": "Auth & Security",
+            "name": "Admin Login",
+            "status": "PASS",
+            "details": "Logged in, redirected to dashboard.php"
+        },
+        {
+            "category": "Auth & Security",
+            "name": "Privilege isolation: Farmer->Admin",
+            "status": "PASS",
+            "details": "Blocked Farmer from Admin portal"
+        },
+        {
+            "category": "Auth & Security",
+            "name": "Privilege isolation: Official->Admin",
+            "status": "PASS",
+            "details": "Blocked Official from Admin portal"
+        },
+        {
+            "category": "Farmer Features",
+            "name": "farmer.php page load",
+            "status": "PASS",
+            "details": "Loaded 200 OK (size: 224414 bytes, CSRF extracted)"
+        },
+        {
+            "category": "Farmer Features",
+            "name": "api\/register_farm.php",
+            "status": "PASS",
+            "details": "Created Farm ID: 12 in Sipocot"
+        },
+        {
+            "category": "Farmer Features",
+            "name": "api\/manage_livestock.php (add)",
+            "status": "PASS",
+            "details": "Added 50 Poultry heads"
+        },
+        {
+            "category": "Farmer Security",
+            "name": "api\/get_farm_livestock.php isolation",
+            "status": "PASS",
+            "details": "Correctly denied Farmer access (403 Forbidden)"
+        },
+        {
+            "category": "Farmer Features",
+            "name": "api\/report_incident.php",
+            "status": "PASS",
+            "details": "Reported Incident ID: 9"
+        },
+        {
+            "category": "Farmer Features",
+            "name": "pages\/ecertificate.php load",
+            "status": "PASS",
+            "details": "E-Certificates section rendered successfully"
+        },
+        {
+            "category": "Official Features",
+            "name": "agriDA.php page load",
+            "status": "PASS",
+            "details": "Loaded 200 OK (size: 192499 bytes)"
+        },
+        {
+            "category": "Official Features",
+            "name": "api\/get_farm_livestock.php review",
+            "status": "PASS",
+            "details": "Official retrieved 2 livestock for review"
+        },
+        {
+            "category": "Biosecurity Map",
+            "name": "maps\/farm-map.php key & rings",
+            "status": "PASS",
+            "details": "Google Maps API loaded with configured key"
+        },
+        {
+            "category": "Biosecurity Map",
+            "name": "500m & 1km Rings + Smooth Zoom",
+            "status": "PASS",
+            "details": "Quarantine=500m, Surveillance=1km, Smooth Zoom verified"
+        },
+        {
+            "category": "Official Features",
+            "name": "api\/approve_farm.php",
+            "status": "PASS",
+            "details": "Approved Farm ID: 12"
+        },
+        {
+            "category": "Official Features",
+            "name": "api\/resolve_incident.php",
+            "status": "PASS",
+            "details": "Resolved Incident ID: 9"
+        },
+        {
+            "category": "Public Reporting",
+            "name": "public-report-form.php load",
+            "status": "PASS",
+            "details": "Public can report incidents (200 OK)"
+        },
+        {
+            "category": "Admin Features",
+            "name": "admin.php page load",
+            "status": "PASS",
+            "details": "Loaded 200 OK (size: 359591 bytes)"
+        },
+        {
+            "category": "Admin Features",
+            "name": "api\/camarines_audit.php",
+            "status": "PASS",
+            "details": "Audit logs accessible (200 OK)"
+        },
+        {
+            "category": "Admin Features",
+            "name": "api\/backup.php endpoint",
+            "status": "PASS",
+            "details": "Endpoint responded with code 200"
+        }
+    ]
+}

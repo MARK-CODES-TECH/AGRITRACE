@@ -123,15 +123,40 @@ try {
         }
     }
 
-    // Response: Always provide the OTP code in response / preview so the user is NEVER blocked
+    // 3. Try Twilio if configured
+    $twilioSid   = getenv('TWILIO_SID')   ?: (defined('TWILIO_SID') ? TWILIO_SID : '');
+    $twilioToken = getenv('TWILIO_TOKEN') ?: (defined('TWILIO_TOKEN') ? TWILIO_TOKEN : '');
+    $twilioFrom  = getenv('TWILIO_FROM')  ?: (defined('TWILIO_FROM') ? TWILIO_FROM : '');
+    if (!$liveSmsSent && !empty($twilioSid) && !empty($twilioToken) && !empty($twilioFrom)) {
+        try {
+            $vendorAutoload = dirname(__DIR__) . '/vendor/autoload.php';
+            if (file_exists($vendorAutoload)) {
+                require_once $vendorAutoload;
+            }
+            if (class_exists('Twilio\Rest\Client')) {
+                $client = new \Twilio\Rest\Client($twilioSid, $twilioToken);
+                $client->messages->create($intlMobile, [
+                    'from' => $twilioFrom,
+                    'body' => $smsMessage
+                ]);
+                $liveSmsSent = true;
+                $smsGatewayNote = 'Live SMS sent via Twilio.';
+            }
+        } catch (Throwable $te) {
+            error_log('Twilio SMS error: ' . $te->getMessage());
+        }
+    }
+
+    $hasGateway = (!empty($semaphoreKey) || !empty($n8nWebhook) || (!empty($twilioSid) && !empty($twilioToken)));
+
+    // Response: Do NOT send the OTP code to the device; user must read SMS on their phone/SIM!
     echo json_encode([
-        'success'       => true,
-        'message'       => "Verification code generated for {$localMobile}.",
-        'mobile'        => $localMobile,
-        'otp_code'      => $otpCode,
-        'live_sms_sent' => $liveSmsSent,
-        'gateway_note'  => $smsGatewayNote ?: 'Instant verification code ready.',
-        'sms_text'      => $smsMessage
+        'success'            => true,
+        'message'            => "Verification code sent via SMS to {$localMobile}.",
+        'mobile'             => $localMobile,
+        'live_sms_sent'      => $liveSmsSent,
+        'gateway_configured' => $hasGateway,
+        'gateway_note'       => $smsGatewayNote ?: ($hasGateway ? 'SMS dispatched to mobile carrier.' : 'SMS gateway credentials needed in .env')
     ]);
 } catch (Throwable $e) {
     echo json_encode(['success' => false, 'message' => 'Could not generate verification code: ' . $e->getMessage()]);
