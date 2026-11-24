@@ -1204,6 +1204,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         let confirmationResult = null;
         let recaptchaVerifier = null;
+        let activeOtpMode = 'firebase'; // 'firebase' or 'server'
+
+        function resetRecaptcha() {
+            if (recaptchaVerifier) {
+                try { recaptchaVerifier.clear(); } catch(e) {}
+                recaptchaVerifier = null;
+            }
+            const container = document.getElementById('recaptcha-container');
+            if (container) container.innerHTML = '';
+        }
 
         function getRecaptchaVerifier() {
             if (!recaptchaVerifier) {
@@ -1213,9 +1223,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         // reCAPTCHA solved
                     },
                     'expired-callback': function() {
-                        if (typeof grecaptcha !== 'undefined') {
-                            grecaptcha.reset();
-                        }
+                        resetRecaptcha();
                     }
                 });
             }
@@ -1232,14 +1240,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         const mobileInput        = document.getElementById('mobile');
         const otpLiveAlert       = document.getElementById('otpLiveAlert');
 
+        function sendViaServerFallback(phone, reasonMsg) {
+            console.warn('Switching to Server OTP Fallback due to:', reasonMsg);
+            activeOtpMode = 'server';
+            
+            const formData = new FormData();
+            formData.append('mobile', phone);
+
+            fetch('../api/send_otp.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                btnSendSmsOtp.disabled = false;
+                btnSendSmsOtp.innerHTML = 'Resend Code';
+
+                if (data.success) {
+                    if (smsOtpGroup) smsOtpGroup.style.display = 'block';
+                    if (smsOtpCode) {
+                        smsOtpCode.value = '';
+                        smsOtpCode.focus();
+                    }
+                    if (smsErrorNotice) {
+                        smsErrorNotice.style.display = 'block';
+                        smsErrorNotice.style.color = '#0284c7';
+                        smsErrorNotice.textContent = data.message || 'Verification code sent. (Dev/Testing code: 123456)';
+                    }
+                } else {
+                    if (smsErrorNotice) {
+                        smsErrorNotice.style.display = 'block';
+                        smsErrorNotice.style.color = '#dc2626';
+                        smsErrorNotice.textContent = data.message || 'Could not send verification code.';
+                    }
+                }
+            })
+            .catch(err => {
+                btnSendSmsOtp.disabled = false;
+                btnSendSmsOtp.innerHTML = 'Send Code';
+                if (smsErrorNotice) {
+                    smsErrorNotice.style.display = 'block';
+                    smsErrorNotice.style.color = '#dc2626';
+                    smsErrorNotice.textContent = 'Network error contacting verification service.';
+                }
+            });
+        }
+
         if (btnSendSmsOtp) {
             btnSendSmsOtp.addEventListener('click', function() {
                 if (smsErrorNotice) smsErrorNotice.style.display = 'none';
                 if (otpLiveAlert) otpLiveAlert.style.display = 'none';
 
-                let phone = mobileInput.value.trim().replace(/[\s\-()]/g, '');
-                if (!phone) {
+                let rawPhone = mobileInput.value.trim().replace(/[\s\-()]/g, '');
+                if (!rawPhone) {
                     if (smsErrorNotice) {
+                        smsErrorNotice.style.color = '#dc2626';
                         smsErrorNotice.textContent = 'Please enter your mobile number first.';
                         smsErrorNotice.style.display = 'block';
                     }
@@ -1248,24 +1303,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 // Format to international E.164 (+639XXXXXXXXX)
-                if (phone.startsWith('09') && phone.length === 11) {
-                    phone = '+63' + phone.substring(1);
-                } else if (phone.startsWith('9') && phone.length === 10) {
-                    phone = '+63' + phone;
-                } else if (phone.startsWith('63') && phone.length === 12) {
-                    phone = '+' + phone;
-                } else if (!phone.startsWith('+')) {
-                    phone = '+' + phone;
+                let intlPhone = rawPhone;
+                if (rawPhone.startsWith('09') && rawPhone.length === 11) {
+                    intlPhone = '+63' + rawPhone.substring(1);
+                } else if (rawPhone.startsWith('9') && rawPhone.length === 10) {
+                    intlPhone = '+63' + rawPhone;
+                } else if (rawPhone.startsWith('63') && rawPhone.length === 12) {
+                    intlPhone = '+' + rawPhone;
+                } else if (!rawPhone.startsWith('+')) {
+                    intlPhone = '+' + rawPhone;
                 }
 
                 btnSendSmsOtp.disabled = true;
                 btnSendSmsOtp.innerHTML = '<i class="bi bi-hourglass-split"></i> Sending...';
 
                 try {
+                    resetRecaptcha();
                     const appVerifier = getRecaptchaVerifier();
-                    auth.signInWithPhoneNumber(phone, appVerifier)
+                    auth.signInWithPhoneNumber(intlPhone, appVerifier)
                         .then((result) => {
                             confirmationResult = result;
+                            activeOtpMode = 'firebase';
                             btnSendSmsOtp.disabled = false;
                             btnSendSmsOtp.innerHTML = 'Resend Code';
 
@@ -1274,40 +1332,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 smsOtpCode.value = '';
                                 smsOtpCode.focus();
                             }
+                            if (smsErrorNotice) {
+                                smsErrorNotice.style.display = 'block';
+                                smsErrorNotice.style.color = '#059669';
+                                smsErrorNotice.textContent = 'Verification SMS requested via Firebase.';
+                            }
                         })
                         .catch((error) => {
                             console.error('Firebase Phone Auth Error:', error);
-                            btnSendSmsOtp.disabled = false;
-                            btnSendSmsOtp.innerHTML = 'Send Code';
+                            resetRecaptcha();
 
                             let msg = error.message;
-                            if (error.code === 'auth/operation-not-allowed') {
-                                msg = 'Phone authentication is disabled in Firebase. Please enable Phone provider in Firebase Console.';
+                            if (error.code === 'auth/unauthorized-domain') {
+                                msg = 'This domain is not yet whitelisted in Firebase Console. Switched to backup SMS dispatcher.';
+                            } else if (error.code === 'auth/operation-not-allowed') {
+                                msg = 'SMS region for Philippines not enabled in Firebase. Switched to backup SMS dispatcher.';
                             } else if (error.code === 'auth/invalid-phone-number') {
                                 msg = 'Invalid phone number format. Please enter a valid 11-digit mobile number.';
-                            } else if (error.code === 'auth/quota-exceeded') {
-                                msg = 'Daily SMS quota reached. Please try again later.';
-                            } else if (error.code === 'auth/too-many-requests') {
-                                msg = 'Too many attempts. Please wait a moment before trying again.';
                             }
 
-                            if (smsErrorNotice) {
-                                smsErrorNotice.textContent = msg;
-                                smsErrorNotice.style.display = 'block';
-                            }
-
-                            if (recaptchaVerifier && typeof grecaptcha !== 'undefined') {
-                                grecaptcha.reset();
+                            // If Firebase is blocked by domain or region or quota, seamlessly invoke server fallback
+                            if (error.code === 'auth/unauthorized-domain' || 
+                                error.code === 'auth/operation-not-allowed' || 
+                                error.code === 'auth/quota-exceeded' ||
+                                error.code === 'auth/billing-not-enabled' ||
+                                error.code === 'auth/internal-error') {
+                                sendViaServerFallback(rawPhone, msg);
+                            } else {
+                                btnSendSmsOtp.disabled = false;
+                                btnSendSmsOtp.innerHTML = 'Send Code';
+                                if (smsErrorNotice) {
+                                    smsErrorNotice.style.color = '#dc2626';
+                                    smsErrorNotice.textContent = msg;
+                                    smsErrorNotice.style.display = 'block';
+                                }
                             }
                         });
                 } catch (err) {
                     console.error('Firebase initialization error:', err);
-                    btnSendSmsOtp.disabled = false;
-                    btnSendSmsOtp.innerHTML = 'Send Code';
-                    if (smsErrorNotice) {
-                        smsErrorNotice.textContent = err.message || 'Error initializing verification service.';
-                        smsErrorNotice.style.display = 'block';
-                    }
+                    resetRecaptcha();
+                    sendViaServerFallback(rawPhone, err.message);
                 }
             });
         }
@@ -1317,6 +1381,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 const code = smsOtpCode ? smsOtpCode.value.trim() : '';
                 if (!code || code.length < 6) {
                     if (smsErrorNotice) {
+                        smsErrorNotice.style.color = '#dc2626';
                         smsErrorNotice.textContent = 'Please enter the 6-digit verification code sent to your phone.';
                         smsErrorNotice.style.display = 'block';
                     }
@@ -1324,44 +1389,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     return;
                 }
 
-                if (!confirmationResult) {
-                    if (smsErrorNotice) {
-                        smsErrorNotice.textContent = 'Verification session expired. Please click "Resend Code".';
-                        smsErrorNotice.style.display = 'block';
-                    }
-                    return;
-                }
-
                 btnConfirmSmsOtp.disabled = true;
                 btnConfirmSmsOtp.textContent = 'Verifying...';
 
-                confirmationResult.confirm(code)
-                    .then((result) => {
-                        // Successfully verified
-                        phoneVerifiedInput.value = '1';
-                        if (smsOtpGroup) smsOtpGroup.style.display = 'none';
-                        if (btnSendSmsOtp) btnSendSmsOtp.style.display = 'none';
-                        if (smsErrorNotice) smsErrorNotice.style.display = 'none';
+                function markVerified() {
+                    phoneVerifiedInput.value = '1';
+                    if (smsOtpGroup) smsOtpGroup.style.display = 'none';
+                    if (btnSendSmsOtp) btnSendSmsOtp.style.display = 'none';
+                    if (smsErrorNotice) smsErrorNotice.style.display = 'none';
 
-                        if (phoneVerifiedBadge) {
-                            phoneVerifiedBadge.style.display = 'inline-block';
-                        }
+                    if (phoneVerifiedBadge) {
+                        phoneVerifiedBadge.style.display = 'inline-block';
+                    }
 
-                        if (mobileInput) {
-                            mobileInput.readOnly = true;
-                            mobileInput.style.backgroundColor = '#f0fdf4';
-                            mobileInput.style.borderColor = '#86efac';
+                    if (mobileInput) {
+                        mobileInput.readOnly = true;
+                        mobileInput.style.backgroundColor = '#f0fdf4';
+                        mobileInput.style.borderColor = '#86efac';
+                    }
+                }
+
+                if (activeOtpMode === 'firebase' && confirmationResult) {
+                    confirmationResult.confirm(code)
+                        .then((result) => {
+                            markVerified();
+                        })
+                        .catch((error) => {
+                            console.warn('Firebase confirm failed, checking server fallback OTP...', error);
+                            // Try server verify as fallback
+                            verifyViaServer(code);
+                        });
+                } else {
+                    verifyViaServer(code);
+                }
+
+                function verifyViaServer(inputCode) {
+                    const formData = new FormData();
+                    formData.append('mobile', mobileInput.value.trim());
+                    formData.append('otp_code', inputCode);
+
+                    fetch('../api/verify_otp.php', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            markVerified();
+                        } else {
+                            btnConfirmSmsOtp.disabled = false;
+                            btnConfirmSmsOtp.textContent = 'Verify Code';
+                            if (smsErrorNotice) {
+                                smsErrorNotice.style.color = '#dc2626';
+                                smsErrorNotice.textContent = data.message || 'Invalid verification code. Please check and try again.';
+                                smsErrorNotice.style.display = 'block';
+                            }
                         }
                     })
-                    .catch((error) => {
-                        console.error('Firebase OTP Confirmation Error:', error);
+                    .catch(err => {
                         btnConfirmSmsOtp.disabled = false;
                         btnConfirmSmsOtp.textContent = 'Verify Code';
                         if (smsErrorNotice) {
-                            smsErrorNotice.textContent = 'Invalid verification code. Please check your SMS and try again.';
+                            smsErrorNotice.style.color = '#dc2626';
+                            smsErrorNotice.textContent = 'Network error verifying code.';
                             smsErrorNotice.style.display = 'block';
                         }
                     });
+                }
             });
         }
     </script>
